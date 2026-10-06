@@ -1,0 +1,19 @@
+[
+  "po_exists",
+  "po_approved",
+  "grn_exists",
+  "vendor_approved",
+  "invoice_po_amount_ratio",
+  "duplicate_invoice",
+  "bank_account_changed",
+  "new_vendor",
+  "vendor_age_days",
+  "past_genuine_payments",
+  "amount_vs_vendor_avg",
+  "unusual_time",
+  "suspicious_channel",
+  "payments_last_24h",
+  "amount_last_24h",
+  "possible_split_payment",
+  "document_quality_score"
+]
