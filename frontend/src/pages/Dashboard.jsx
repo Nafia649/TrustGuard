@@ -1,503 +1,270 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../components/common/Card';
-import Badge from '../components/common/Badge';
-import Button from '../components/common/Button';
-import RiskScore from '../components/risk/RiskScore';
-import RiskReasons from '../components/risk/RiskReasons';
-import RoutingCard from '../components/risk/RoutingCard';
-import ThreeWayMatch from '../components/payment/ThreeWayMatch';
+import { formatINR } from '../utils/formatters';
+import { getPayments } from '../api/paymentApi';
+import { getAuditLogs } from '../api/auditApi';
 import {
-  CreditCard,
+  FileText,
+  Activity,
+  CheckSquare,
   Clock,
-  AlertTriangle,
-  PauseCircle,
-  CheckCircle,
+  Settings,
+  BookOpen,
   ShieldCheck,
-  Loader2,
+  FileUp,
+  AlertTriangle,
   Database,
-  Play,
-  CheckCircle2,
-  XCircle,
-  Info,
-  FileUp
+  ArrowRight
 } from 'lucide-react';
 
-import { mockPayments } from '../data/mockPayments';
-import { formatINR } from '../utils/formatters';
-import { seedDatabase, scorePayment, verifyAuditLog } from '../api/riskApi';
-
 export default function Dashboard() {
-  const [seeding, setSeeding] = useState(false);
-  const [seedResult, setSeedResult] = useState(null);
-
-  const [scoring, setScoring] = useState(false);
-  const [scoredPayment, setScoredPayment] = useState(null);
-
-  const [verifyingAudit, setVerifyingAudit] = useState(false);
-  const [auditResult, setAuditResult] = useState(null);
-
+  const [payments, setPayments] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 1. Seed demo database
-  const handleSeed = async () => {
-    setSeeding(true);
-    setError(null);
-    try {
-      const data = await seedDatabase();
-      setSeedResult(data);
-    } catch (err) {
-      setError(`Seed Error: ${err.message}`);
-    } finally {
-      setSeeding(false);
-    }
-  };
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [paymentsData, auditData] = await Promise.all([
+          getPayments(),
+          getAuditLogs({ limit: 5 })
+        ]);
+        setPayments(paymentsData);
+        setAuditLogs(auditData);
+      } catch (err) {
+        setError(err.message || 'Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
-  // 2. Score REQ-DEMO-001
-  const handleScore = async () => {
-    setScoring(true);
-    setError(null);
-    try {
-      const data = await scorePayment('REQ-DEMO-001');
-      setScoredPayment(data);
-      // Auto-refresh audit verification after scoring
-      const audit = await verifyAuditLog().catch(() => null);
-      if (audit) setAuditResult(audit);
-    } catch (err) {
-      setError(`Scoring Error: ${err.message}`);
-    } finally {
-      setScoring(false);
-    }
-  };
+  // Compute metrics
+  const totalPayments = payments.length;
+  const pendingCount = payments.filter(p => ['PENDING_APPROVAL'].includes(p.status)).length;
+  const holdCount = payments.filter(p => ['ON_HOLD'].includes(p.status)).length;
+  const authorizedCount = payments.filter(p => p.status === 'AUTHORIZED').length;
+  const releasedCount = payments.filter(p => p.status === 'RELEASED').length;
+  const rejectedCount = payments.filter(p => p.status === 'REJECTED').length;
 
-  // 3. Verify audit log hash chain
-  const handleVerifyAudit = async () => {
-    setVerifyingAudit(true);
-    setError(null);
-    try {
-      const data = await verifyAuditLog();
-      setAuditResult(data);
-    } catch (err) {
-      setError(`Audit Verification Error: ${err.message}`);
-    } finally {
-      setVerifyingAudit(false);
-    }
-  };
+  // Risk buckets (for those that have a risk score)
+  const lowRisk = payments.filter(p => p.risk_score !== null && p.risk_score < 30).length;
+  const medRisk = payments.filter(p => p.risk_score !== null && p.risk_score >= 30 && p.risk_score < 70).length;
+  const highRisk = payments.filter(p => p.risk_score !== null && p.risk_score >= 70).length;
+
+  if (loading) {
+    return <div className="p-8 text-center text-text-muted">Loading secure dashboard...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-danger/10 text-danger rounded-md border border-danger/20 flex items-center gap-2">
+        <AlertTriangle className="h-5 w-5" />
+        {error}
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-text-main">Payment Security Dashboard</h1>
-          <p className="text-xs text-text-muted mt-1">TrustGuard + REALKEY Orchestration Layer</p>
-        </div>
-        <Link to="/invoices/upload">
-          <Button variant="primary" className="flex items-center gap-2">
-            <FileUp className="w-4 h-4 text-navy-bg" />
-            <span>Upload Invoice (OCR)</span>
-          </Button>
-        </Link>
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-text-main">Welcome to TrustGuard</h1>
+        <p className="text-sm text-text-muted mt-1">Autonomous payment security, ML fraud detection, and cryptographic approval orchestration.</p>
       </div>
 
-      {/* LIVE HACKATHON DEMO CONTROL PANEL */}
-      <Card className="border-primary/40 bg-navy-surface shadow-xl">
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-navy-border gap-2">
-            <div className="flex items-center space-x-2">
-              <ShieldCheck className="w-5 h-5 text-primary" />
-              <h2 className="text-base font-bold text-text-main">TrustGuard Live Demo Controls</h2>
-              <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 font-medium">
-                Backend Connected (http://127.0.0.1:8000)
-              </span>
-            </div>
-            <div className="text-xs text-text-muted">
-              Demo ML Provider Active
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              onClick={handleSeed}
-              disabled={seeding}
-              className="flex items-center space-x-2"
-            >
-              {seeding ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Database className="w-4 h-4" />
-              )}
-              <span>1. Seed Demo Data</span>
-            </Button>
-
-            <Button
-              onClick={handleScore}
-              disabled={scoring}
-              className="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white"
-            >
-              {scoring ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-              <span>2. Score REQ-DEMO-001</span>
-            </Button>
-
-            <Button
-              onClick={handleVerifyAudit}
-              disabled={verifyingAudit}
-              variant="secondary"
-              className="flex items-center space-x-2"
-            >
-              {verifyingAudit ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="w-4 h-4 text-primary" />
-              )}
-              <span>3. Verify Audit Chain</span>
-            </Button>
-          </div>
-
-          {/* Feedback & Status Messages */}
-          {error && (
-            <div className="p-3 bg-danger/10 border border-danger/30 rounded-md text-xs text-danger flex items-center space-x-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {seedResult && !error && (
-            <div className="p-3 bg-success/10 border border-success/30 rounded-md text-xs text-success flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>
-                  <strong>Database Seeded:</strong> {seedResult.company} ({seedResult.vendors_count} Vendors, {seedResult.purchase_orders_count} POs, {seedResult.payment_requests_count} Payment Requests).
-                </span>
-              </div>
-              <span className="text-text-muted">Policy v{seedResult.policy_version}</span>
-            </div>
-          )}
-
-          {auditResult && !error && (
-            <div className="p-3 bg-navy-bg border border-navy-border rounded-md text-xs flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                {auditResult.valid ? (
-                  <CheckCircle className="w-4 h-4 text-success shrink-0" />
-                ) : (
-                  <XCircle className="w-4 h-4 text-danger shrink-0" />
-                )}
-                <span>
-                  <strong>SHA-256 Audit Chain:</strong>{' '}
-                  <span className={auditResult.valid ? 'text-success font-semibold' : 'text-danger font-semibold'}>
-                    {auditResult.valid ? 'VALID (Pristine)' : 'COMPROMISED'}
-                  </span>
-                  {' '}— {auditResult.records_checked} cryptographically linked records verified.
-                </span>
-              </div>
-              {auditResult.corrupted_id && (
-                <span className="text-danger">Corrupted ID: {auditResult.corrupted_id}</span>
-              )}
-            </div>
-          )}
-        </div>
-      </Card>
-
-      {/* LIVE SCORING RESULTS DISPLAY (SHOWN WHEN REQ-DEMO-001 IS SCORED) */}
-      {scoredPayment && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <span className="text-xs uppercase tracking-wider font-bold text-success bg-success/10 px-2 py-1 rounded border border-success/20">
-                Live Backend Evaluation
-              </span>
-              <h2 className="text-xl font-bold text-text-main">
-                Payment {scoredPayment.requestId} — {scoredPayment.paymentStatus}
-              </h2>
-            </div>
-            <Link
-              to={`/risk/${scoredPayment.requestId}`}
-              className="text-primary text-xs hover:underline flex items-center"
-            >
-              Open Full Risk Analysis View →
-            </Link>
-          </div>
-
-          {/* Model Disclaimer Notice */}
-          <div className="p-2.5 bg-navy-bg border border-navy-border rounded text-xs text-text-muted flex items-center space-x-2">
-            <Info className="w-4 h-4 text-primary shrink-0" />
-            <span>
-              Evaluation source: <strong>{scoredPayment.modelVersion}</strong>. Risk score: <strong>{scoredPayment.riskScore}/100</strong>, Fraud Probability: <strong>{(scoredPayment.fraudProbability * 100).toFixed(0)}%</strong>.
-            </span>
-          </div>
-
-          {/* 3-Column Component Grid (Reusing existing components) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
-              <RiskScore
-                riskScore={scoredPayment.riskScore}
-                riskLevel={scoredPayment.riskLevel}
-                fraudProbability={scoredPayment.fraudProbability}
-                modelVersion={scoredPayment.modelVersion}
-              />
-            </div>
-
-            <div className="lg:col-span-2">
-              <RiskReasons reasons={scoredPayment.reasons} />
-            </div>
-          </div>
-
-          {/* Routing Decision & Three-Way Match Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <RoutingCard
-              routing={scoredPayment.routing}
-              riskLevel={scoredPayment.riskLevel}
-            />
-
-            <div className="bg-navy-surface border border-navy-border rounded-xl p-5">
-              <ThreeWayMatch
-                threeWayMatch={scoredPayment.threeWayMatch}
-                poId={scoredPayment.poId}
-                invoiceId={scoredPayment.invoiceId}
-              />
-
-              {/* Business Checks Details Summary */}
-              <div className="mt-4 pt-3 border-t border-navy-border/60">
-                <div className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
-                  Verified Business Facts
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex justify-between p-1.5 bg-navy-bg rounded border border-navy-border/40">
-                    <span className="text-text-muted">PO Amount Match:</span>
-                    <span className="text-success font-medium">₹45,000 (100%)</span>
-                  </div>
-                  <div className="flex justify-between p-1.5 bg-navy-bg rounded border border-navy-border/40">
-                    <span className="text-text-muted">Bank Account:</span>
-                    <span className="text-success font-medium">Verified ACME-001</span>
-                  </div>
-                  <div className="flex justify-between p-1.5 bg-navy-bg rounded border border-navy-border/40">
-                    <span className="text-text-muted">Vendor Approval:</span>
-                    <span className="text-success font-medium">Approved Vendor</span>
-                  </div>
-                  <div className="flex justify-between p-1.5 bg-navy-bg rounded border border-navy-border/40">
-                    <span className="text-text-muted">Duplicate Check:</span>
-                    <span className="text-success font-medium">No Duplicates</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* METRIC OVERVIEW CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-text-muted text-xs font-semibold uppercase tracking-wider">Total Payments</p>
-              <h2 className="text-3xl font-bold mt-2">
-                {scoredPayment ? '4' : '24'}
-              </h2>
-              <p className="text-xs text-text-muted mt-1">Acme Ltd Portfolio</p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <CreditCard className="text-primary w-5 h-5" />
-            </div>
-          </div>
+      {/* Metrics Row */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <Card className="p-4 flex flex-col items-center justify-center text-center">
+          <div className="text-xs text-text-muted uppercase font-bold tracking-wider mb-1">Total</div>
+          <div className="text-2xl font-bold text-text-main">{totalPayments}</div>
         </Card>
-
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-text-muted text-xs font-semibold uppercase tracking-wider">Pending Approvals</p>
-              <h2 className="text-3xl font-bold mt-2">
-                {scoredPayment ? '2' : '5'}
-              </h2>
-              <p className="text-xs text-warning mt-1">Requires Human Signatures</p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
-              <Clock className="text-warning w-5 h-5" />
-            </div>
-          </div>
+        <Card className="p-4 flex flex-col items-center justify-center text-center">
+          <div className="text-xs text-text-muted uppercase font-bold tracking-wider mb-1">Pending</div>
+          <div className="text-2xl font-bold text-warning">{pendingCount}</div>
         </Card>
-
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-text-muted text-xs font-semibold uppercase tracking-wider">Payments on Hold</p>
-              <h2 className="text-3xl font-bold mt-2">
-                {scoredPayment ? '1' : '3'}
-              </h2>
-              <p className="text-xs text-danger mt-1">High Risk Escalation</p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center">
-              <PauseCircle className="text-danger w-5 h-5" />
-            </div>
-          </div>
+        <Card className="p-4 flex flex-col items-center justify-center text-center border border-danger/50 bg-danger/5">
+          <div className="text-xs text-danger uppercase font-bold tracking-wider mb-1">On Hold</div>
+          <div className="text-2xl font-bold text-danger">{holdCount}</div>
+        </Card>
+        <Card className="p-4 flex flex-col items-center justify-center text-center">
+          <div className="text-xs text-text-muted uppercase font-bold tracking-wider mb-1">Authorized</div>
+          <div className="text-2xl font-bold text-primary">{authorizedCount}</div>
+        </Card>
+        <Card className="p-4 flex flex-col items-center justify-center text-center">
+          <div className="text-xs text-text-muted uppercase font-bold tracking-wider mb-1">Released</div>
+          <div className="text-2xl font-bold text-success">{releasedCount}</div>
+        </Card>
+        <Card className="p-4 flex flex-col items-center justify-center text-center">
+          <div className="text-xs text-text-muted uppercase font-bold tracking-wider mb-1">Rejected</div>
+          <div className="text-2xl font-bold text-text-muted line-through">{rejectedCount}</div>
         </Card>
       </div>
 
-      {/* RECENT PAYMENTS TABLE & SYSTEM FLOW */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card
-            title="Payment Portfolio"
-            action={
-              <Link to="/payments" className="text-primary text-sm hover:underline">
-                View all →
+        {/* Quick Actions & Risk */}
+        <div className="space-y-6">
+          <Card title="Quick Actions">
+            <div className="grid grid-cols-2 gap-3">
+              <Link to="/invoices/upload" className="bg-navy-bg border border-navy-border p-3 rounded-lg flex flex-col items-center text-center hover:bg-navy-border/50 transition-colors">
+                <FileUp className="h-6 w-6 text-primary mb-2" />
+                <span className="text-xs font-bold text-text-main">Upload Invoice</span>
               </Link>
-            }
-          >
+              <Link to="/approval" className="bg-navy-bg border border-navy-border p-3 rounded-lg flex flex-col items-center text-center hover:bg-navy-border/50 transition-colors">
+                <CheckSquare className="h-6 w-6 text-warning mb-2" />
+                <span className="text-xs font-bold text-text-main">Sign Approvals</span>
+              </Link>
+              <Link to="/analyst" className="bg-navy-bg border border-navy-border p-3 rounded-lg flex flex-col items-center text-center hover:bg-navy-border/50 transition-colors">
+                <Clock className="h-6 w-6 text-danger mb-2" />
+                <span className="text-xs font-bold text-text-main">Analyst Queue</span>
+              </Link>
+              <Link to="/audit" className="bg-navy-bg border border-navy-border p-3 rounded-lg flex flex-col items-center text-center hover:bg-navy-border/50 transition-colors">
+                <ShieldCheck className="h-6 w-6 text-success mb-2" />
+                <span className="text-xs font-bold text-text-main">Audit Log</span>
+              </Link>
+              <Link to="/policy" className="bg-navy-bg border border-navy-border p-3 rounded-lg flex flex-col items-center text-center hover:bg-navy-border/50 transition-colors">
+                <Settings className="h-6 w-6 text-secondary mb-2" />
+                <span className="text-xs font-bold text-text-main">Policy Rules</span>
+              </Link>
+              <Link to="/ledger" className="bg-navy-bg border border-navy-border p-3 rounded-lg flex flex-col items-center text-center hover:bg-navy-border/50 transition-colors">
+                <BookOpen className="h-6 w-6 text-text-muted mb-2" />
+                <span className="text-xs font-bold text-text-main">Mock Ledger</span>
+              </Link>
+            </div>
+          </Card>
+
+          <Card title="Active Risk Distribution">
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between text-xs font-bold text-text-muted mb-1">
+                  <span>Low Risk (Auto)</span>
+                  <span className="text-success">{lowRisk}</span>
+                </div>
+                <div className="w-full bg-navy-bg rounded-full h-2">
+                  <div className="bg-success h-2 rounded-full" style={{ width: totalPayments ? `${(lowRisk / totalPayments) * 100}%` : '0%' }}></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-xs font-bold text-text-muted mb-1">
+                  <span>Medium Risk (Manual)</span>
+                  <span className="text-warning">{medRisk}</span>
+                </div>
+                <div className="w-full bg-navy-bg rounded-full h-2">
+                  <div className="bg-warning h-2 rounded-full" style={{ width: totalPayments ? `${(medRisk / totalPayments) * 100}%` : '0%' }}></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between text-xs font-bold text-text-muted mb-1">
+                  <span>High Risk (Hold)</span>
+                  <span className="text-danger">{highRisk}</span>
+                </div>
+                <div className="w-full bg-navy-bg rounded-full h-2">
+                  <div className="bg-danger h-2 rounded-full" style={{ width: totalPayments ? `${(highRisk / totalPayments) * 100}%` : '0%' }}></div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Recent Payments */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card title="Recent Payment Requests">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="text-xs text-text-muted uppercase border-b border-navy-border">
                   <tr>
-                    <th className="pb-3 font-semibold">Request ID</th>
-                    <th className="pb-3 font-semibold">Vendor</th>
-                    <th className="pb-3 font-semibold">Amount</th>
-                    <th className="pb-3 font-semibold">Risk</th>
-                    <th className="pb-3 font-semibold">Status</th>
-                    <th className="pb-3 font-semibold">Required Approval</th>
-                    <th className="pb-3 font-semibold">Action</th>
+                    <th className="pb-3 font-semibold px-4">Request ID</th>
+                    <th className="pb-3 font-semibold px-4">Vendor</th>
+                    <th className="pb-3 font-semibold px-4">Amount</th>
+                    <th className="pb-3 font-semibold px-4">Score</th>
+                    <th className="pb-3 font-semibold px-4">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-navy-border">
-                  {mockPayments.slice(0, 5).map((p) => {
-                    const isScored = scoredPayment && scoredPayment.requestId === p.id;
-                    const status = isScored ? scoredPayment.paymentStatus : p.status;
-                    const riskLevel = isScored ? scoredPayment.riskLevel : p.riskLevel;
-
-                    return (
-                      <tr key={p.id} className="hover:bg-navy-border/20 transition-colors">
-                        <td className="py-3 font-medium text-text-main">{p.id}</td>
-                        <td className="py-3">{p.vendor}</td>
-                        <td className="py-3">{formatINR(p.amount)}</td>
-                        <td className="py-3">
-                          <Link
-                            to={`/risk/${p.id}`}
-                            className="hover:opacity-80 transition-opacity"
-                            title="View Risk Analysis"
-                          >
-                            <Badge status={riskLevel} />
-                          </Link>
-                        </td>
-                        <td className="py-3">
-                          <Badge status={status} />
-                        </td>
-                        <td className="py-3 text-text-muted">{p.requiredApproval}</td>
-                        <td className="py-3 flex items-center space-x-2">
-                          <Link to={`/payments/${p.id}`} className="text-primary hover:underline text-xs">
-                            View
-                          </Link>
-                          {p.id === 'REQ-DEMO-001' && (
-                            <button
-                              onClick={handleScore}
-                              disabled={scoring}
-                              className="px-2 py-0.5 rounded text-xs bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30"
-                            >
-                              Score
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                <tbody className="divide-y divide-navy-border/50">
+                  {payments.slice(0, 5).map((p) => (
+                    <tr key={p.request_id} className="hover:bg-navy-bg/50 transition-colors">
+                      <td className="py-3 px-4 font-mono text-primary font-bold">
+                        <Link to={`/payments/${p.request_id}`} className="hover:underline">
+                          {p.request_id}
+                        </Link>
+                      </td>
+                      <td className="py-3 px-4 text-text-main">{p.vendor_id}</td>
+                      <td className="py-3 px-4 text-text-main font-bold">{formatINR(p.amount)}</td>
+                      <td className="py-3 px-4">
+                        {p.risk_score !== null ? (
+                          <span className={`font-bold ${p.risk_score >= 90 ? 'text-danger' : p.risk_score >= 50 ? 'text-warning' : 'text-success'}`}>
+                            {p.risk_score}
+                          </span>
+                        ) : (
+                          <span className="text-text-muted">-</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold border ${
+                          p.status === 'ON_HOLD' ? 'bg-danger/20 text-danger border-danger/30' : 
+                          p.status === 'PENDING_APPROVAL' ? 'bg-warning/20 text-warning border-warning/30' : 
+                          p.status === 'AUTHORIZED' ? 'bg-primary/20 text-primary border-primary/30' :
+                          p.status === 'RELEASED' ? 'bg-success/20 text-success border-success/30' :
+                          'bg-navy-border text-text-muted border-navy-border'
+                        }`}>
+                          {p.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {payments.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="py-8 text-center text-text-muted">No payments found.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
+              {payments.length > 5 && (
+                <div className="pt-3 pb-1 px-4 text-right">
+                  <Link to="/payments" className="text-xs text-primary font-bold hover:underline inline-flex items-center gap-1">
+                    View all payments <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              )}
             </div>
           </Card>
 
-          {/* System Flow Card */}
-          <Card title="Orchestration Pipeline">
-            <div className="flex flex-col space-y-2">
-              <div className="flex items-center text-sm">
-                <CheckCircle className="w-4 h-4 text-success mr-2" />
-                <span>1. Payment Ingestion (ERP / Accounts System)</span>
-              </div>
-              <div className="ml-2 w-0.5 h-3 bg-navy-border"></div>
-              <div className="flex items-center text-sm">
-                <CheckCircle className="w-4 h-4 text-success mr-2" />
-                <span>2. Deterministic Three-Way Match (PO + GRN + Invoice)</span>
-              </div>
-              <div className="ml-2 w-0.5 h-3 bg-navy-border"></div>
-              <div className="flex items-center text-sm">
-                <CheckCircle className="w-4 h-4 text-success mr-2" />
-                <span>3. ML Feature Derivation &amp; Fraud Risk Intelligence</span>
-              </div>
-              <div className="ml-2 w-0.5 h-3 bg-navy-border"></div>
-              <div className="flex items-center text-sm">
-                <AlertTriangle className="w-4 h-4 text-warning mr-2" />
-                <span>4. Dynamic Policy Routing (Auto / 1-Sig / 2-Sig / Hold)</span>
-              </div>
-              <div className="ml-2 w-0.5 h-3 bg-navy-border"></div>
-              <div className="flex items-center text-sm">
-                <Clock className="w-4 h-4 text-primary mr-2" />
-                <span>5. REALKEY Cryptographic Passkey Approval (If Escalated)</span>
-              </div>
-              <div className="ml-2 w-0.5 h-3 bg-navy-border"></div>
-              <div className="flex items-center text-sm">
-                <ShieldCheck className="w-4 h-4 text-success mr-2" />
-                <span>6. Tamper-Evident SHA-256 Chained Audit Logging</span>
-              </div>
+          {/* Real Audit Logs */}
+          <Card title="Live Audit Telemetry">
+            <div className="divide-y divide-navy-border/50">
+              {auditLogs.map((log) => (
+                <div key={log.log_id} className="p-4 flex gap-4 hover:bg-navy-bg/50 transition-colors">
+                  <div className="mt-0.5">
+                    <Database className="h-5 w-5 text-secondary" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-sm font-bold text-text-main">{log.action}</span>
+                      <span className="text-xs font-mono text-text-muted">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-text-muted">Actor: <span className="font-mono text-primary">{log.user_id}</span></span>
+                      {log.request_id && (
+                        <span className="font-mono text-text-muted">{log.request_id}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {auditLogs.length === 0 && (
+                <div className="p-6 text-center text-text-muted">No audit logs found.</div>
+              )}
             </div>
-          </Card>
-        </div>
-
-        {/* Risk Overview Column */}
-        <div className="space-y-6">
-          <Card title="Risk Distribution">
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Low Risk (Auto-Approve)</span>
-                  <span className="text-success">1</span>
-                </div>
-                <div className="w-full bg-navy-border rounded-full h-1.5">
-                  <div className="bg-success h-1.5 rounded-full" style={{ width: '25%' }}></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>Medium Risk (1 Signature)</span>
-                  <span className="text-warning">2</span>
-                </div>
-                <div className="w-full bg-navy-border rounded-full h-1.5">
-                  <div className="bg-warning h-1.5 rounded-full" style={{ width: '50%' }}></div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>High Risk (Hold / Analyst Review)</span>
-                  <span className="text-danger">1</span>
-                </div>
-                <div className="w-full bg-navy-border rounded-full h-1.5">
-                  <div className="bg-danger h-1.5 rounded-full" style={{ width: '25%' }}></div>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <Card title="Audit Integrity Summary">
-            <div className="space-y-3 text-xs text-text-muted">
-              <div className="flex justify-between">
-                <span>Hash Algorithm:</span>
-                <span className="text-text-main font-mono">SHA-256</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Genesis Anchor:</span>
-                <span className="text-text-main font-mono">000000...0000</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Storage Engine:</span>
-                <span className="text-text-main">SQLite Chained</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Tamper Evident:</span>
-                <span className="text-success font-semibold">Active</span>
-              </div>
+            <div className="pt-2 pb-3 px-4 border-t border-navy-border/50 bg-navy-bg/50">
+              <Link to="/audit" className="text-xs text-secondary font-bold hover:underline inline-flex items-center gap-1">
+                View complete cryptographic chain <ArrowRight className="h-3 w-3" />
+              </Link>
             </div>
           </Card>
         </div>

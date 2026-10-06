@@ -26,7 +26,7 @@ function App() {
           <Route path="payments/new" element={<NewPayment />} />
           <Route path="payments/:id" element={<PaymentDetails />} />
           <Route path="payments/:id/approve" element={<PaymentApproval />} />
-          <Route path="risk" element={<Placeholder title="Risk Analysis Dashboard" />} />
+          <Route path="risk" element={<Navigate to="/payments" replace />} />
           <Route path="risk/:id" element={<RiskAnalysis />} />
           <Route path="approval" element={<Approvals />} />
           <Route path="analyst" element={<AnalystReview />} />
