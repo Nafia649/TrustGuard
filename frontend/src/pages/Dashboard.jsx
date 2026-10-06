@@ -19,7 +19,8 @@ import {
   Play,
   CheckCircle2,
   XCircle,
-  Info
+  Info,
+  FileUp
 } from 'lucide-react';
 
 import { mockPayments } from '../data/mockPayments';
@@ -91,6 +92,12 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold text-text-main">Payment Security Dashboard</h1>
           <p className="text-xs text-text-muted mt-1">TrustGuard + REALKEY Orchestration Layer</p>
         </div>
+        <Link to="/invoices/upload">
+          <Button variant="primary" className="flex items-center gap-2">
+            <FileUp className="w-4 h-4 text-navy-bg" />
+            <span>Upload Invoice (OCR)</span>
+          </Button>
+        </Link>
       </div>
 
       {/* LIVE HACKATHON DEMO CONTROL PANEL */}

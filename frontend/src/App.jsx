@@ -6,7 +6,13 @@ import NewPayment from './pages/NewPayment';
 import PaymentDetails from './pages/PaymentDetails';
 import RiskAnalysis from './pages/RiskAnalysis';
 import PaymentApproval from './pages/PaymentApproval';
+import InvoiceUpload from './pages/InvoiceUpload';
 import Placeholder from './pages/Placeholder';
+
+import Approvals from './pages/Approvals';
+import Ledger from './pages/Ledger';
+
+import AnalystReview from './pages/AnalystReview';
 
 function App() {
   return (
@@ -14,16 +20,17 @@ function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="invoices/upload" element={<InvoiceUpload />} />
           <Route path="payments" element={<Payments />} />
           <Route path="payments/new" element={<NewPayment />} />
           <Route path="payments/:id" element={<PaymentDetails />} />
           <Route path="payments/:id/approve" element={<PaymentApproval />} />
           <Route path="risk" element={<Placeholder title="Risk Analysis Dashboard" />} />
           <Route path="risk/:id" element={<RiskAnalysis />} />
-          <Route path="approvals" element={<Placeholder title="Approvals" />} />
-          <Route path="analyst" element={<Placeholder title="Analyst Holds" />} />
+          <Route path="approval" element={<Approvals />} />
+          <Route path="analyst" element={<AnalystReview />} />
           <Route path="policy" element={<Placeholder title="Policy Settings" />} />
-          <Route path="ledger" element={<Placeholder title="Mock Ledger" />} />
+          <Route path="ledger" element={<Ledger />} />
           <Route path="audit" element={<Placeholder title="Audit Log" />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>

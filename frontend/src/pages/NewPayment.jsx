@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Card from '../components/common/Card';
+import Button from '../components/common/Button';
 import PaymentForm from '../components/payment/PaymentForm';
 import { addMockPayment } from '../data/mockPayments';
+import { FileUp } from 'lucide-react';
 
 export default function NewPayment() {
   const navigate = useNavigate();
@@ -36,6 +38,12 @@ export default function NewPayment() {
           <h1 className="text-2xl font-bold text-text-main">New Payment Request</h1>
           <p className="text-sm text-text-muted mt-1">Submit a new payment for authorization.</p>
         </div>
+        <Link to="/invoices/upload">
+          <Button variant="primary" className="flex items-center gap-2">
+            <FileUp className="w-4 h-4 text-navy-bg" />
+            <span>Upload Invoice PDF (OCR)</span>
+          </Button>
+        </Link>
       </div>
 
       {success && (

@@ -107,11 +107,5 @@ export const verifyAuditLog = async () => {
  * Calls backend live scoring endpoint, falling back to mock data if needed.
  */
 export const getRiskAnalysis = async (requestId) => {
-  try {
-    return await scorePayment(requestId);
-  } catch (err) {
-    console.warn(`Backend scoring unavailable for ${requestId}, using mock fallback:`, err);
-    const data = mockRiskAnalysisData[requestId] || mockRiskAnalysisData['REQ-DEMO-001'] || mockRiskAnalysisData['REQ001'];
-    return data;
-  }
+  return await scorePayment(requestId);
 };

@@ -1,12 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, Activity, CheckSquare, Clock, Settings, BookOpen, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, FileText, Activity, CheckSquare, Clock, Settings, BookOpen, ShieldCheck, FileUp } from 'lucide-react';
 import clsx from 'clsx';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { name: 'Upload Invoice', path: '/invoices/upload', icon: FileUp },
   { name: 'Payment Requests', path: '/payments', icon: FileText },
   { name: 'Risk Analysis', path: '/risk', icon: Activity },
-  { name: 'Approvals', path: '/approvals', icon: CheckSquare },
+  { name: 'Approvals', path: '/approval', icon: CheckSquare },
   { name: 'Analyst Holds', path: '/analyst', icon: Clock },
   { name: 'Policy Settings', path: '/policy', icon: Settings },
   { name: 'Mock Ledger', path: '/ledger', icon: BookOpen },
