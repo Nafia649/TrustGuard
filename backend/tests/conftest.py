@@ -20,8 +20,9 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db():
-    """Create all tables in memory for tests."""
-    Base.metadata.create_all(bind=test_engine)
+    """Create all tables in memory for tests and apply migrations."""
+    from app.services.migration_service import init_db
+    init_db(test_engine)
     yield
     Base.metadata.drop_all(bind=test_engine)
 

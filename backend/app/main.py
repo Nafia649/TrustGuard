@@ -13,8 +13,10 @@ from app.api.signing import router as signing_router
 from app.api.webauthn import router as webauthn_router
 from app.api.audit import router as audit_router
 
-# Create SQLite database tables if they do not exist
-Base.metadata.create_all(bind=engine)
+from app.services.migration_service import init_db
+
+# Create SQLite database tables if they do not exist and apply schema migrations
+init_db(engine)
 
 app = FastAPI(
     title="TrustGuard + REALKEY API",

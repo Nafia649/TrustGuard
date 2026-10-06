@@ -49,6 +49,7 @@ backend/
 │   │   ├── policy_engine.py     # Policy evaluation, safety safeguards & versioning
 │   │   ├── signature_service.py # REALKEY signing challenges & Fail-Closed verification
 │   │   ├── audit_service.py     # Hash-chained tamper-evident audit log
+│   │   ├── migration_service.py # Automatic SQLite schema migration & backfill
 │   │   └── seed_service.py      # Acme Ltd demo scenario seeder
 │   ├── config.py        # Settings and environment variables
 │   ├── database.py      # SQLAlchemy engine and session setup
@@ -58,6 +59,7 @@ backend/
 │   ├── test_health.py
 │   ├── test_payments.py
 │   ├── test_audit.py
+│   ├── test_schema_migration.py
 │   ├── test_three_way_match.py
 │   ├── test_policy.py
 │   ├── test_scoring_orchestration.py

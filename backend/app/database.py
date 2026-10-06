@@ -33,3 +33,10 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def init_database(bind=None):
+    """Convenience helper to initialize database schema and migrations."""
+    from app.services.migration_service import init_db
+    init_db(bind or engine)
+
