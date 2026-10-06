@@ -1,5 +1,133 @@
 export let mockPayments = [
   {
+    id: 'REQ-DEMO-001',
+    vendor: 'Acme Industrial Supplies',
+    vendorId: 'VEND-001',
+    amount: 45000,
+    currency: 'INR',
+    bankAccount: 'ACME-BANK-001',
+    invoiceId: 'INV-2026-001',
+    poId: 'PO-2026-001',
+    paymentChannel: 'NEFT',
+    description: 'Scenario 1: Low risk (auto-approve target)',
+    status: 'AUTHORIZED',
+    riskLevel: 'LOW',
+    requiredApproval: 'Auto Approval',
+    createdAt: '2026-10-06T10:00:00Z',
+    threeWayMatch: {
+      po_match: true,
+      grn_match: true,
+      invoice_match: true,
+      overall_match: 'MATCHED'
+    },
+    vendorInfo: {
+      approved: true,
+      typicalAmount: 45000
+    },
+    approvalInfo: {
+      required: 0,
+      completed: 0,
+      remaining: 0,
+      status: 'Auto Approved'
+    }
+  },
+  {
+    id: 'REQ-DEMO-002',
+    vendor: 'Global Tech Solutions',
+    vendorId: 'VEND-002',
+    amount: 150000,
+    currency: 'INR',
+    bankAccount: 'GLOB-BANK-002',
+    invoiceId: 'INV-2026-002',
+    poId: 'PO-2026-002',
+    paymentChannel: 'RTGS',
+    description: 'Scenario 2: Medium risk (single signature target)',
+    status: 'PENDING_APPROVAL',
+    riskLevel: 'MEDIUM',
+    requiredApproval: '1 Signature',
+    createdAt: '2026-10-06T10:15:00Z',
+    threeWayMatch: {
+      po_match: true,
+      grn_match: true,
+      invoice_match: true,
+      overall_match: 'MATCHED'
+    },
+    vendorInfo: {
+      approved: true,
+      typicalAmount: 120000
+    },
+    approvalInfo: {
+      required: 1,
+      completed: 0,
+      remaining: 1,
+      status: 'Pending 1 Signature'
+    }
+  },
+  {
+    id: 'REQ-DEMO-003',
+    vendor: 'Nexus Logistics',
+    vendorId: 'VEND-003',
+    amount: 85000,
+    currency: 'INR',
+    bankAccount: 'NEXUS-BANK-003',
+    invoiceId: 'INV-2026-003',
+    poId: 'PO-2026-003',
+    paymentChannel: 'NEFT',
+    description: 'Scenario 3: Tamper demo baseline payment',
+    status: 'PENDING_APPROVAL',
+    riskLevel: 'MEDIUM',
+    requiredApproval: '1 Signature',
+    createdAt: '2026-10-06T10:30:00Z',
+    threeWayMatch: {
+      po_match: true,
+      grn_match: true,
+      invoice_match: true,
+      overall_match: 'MATCHED'
+    },
+    vendorInfo: {
+      approved: true,
+      typicalAmount: 85000
+    },
+    approvalInfo: {
+      required: 1,
+      completed: 0,
+      remaining: 1,
+      status: 'Pending Approval'
+    }
+  },
+  {
+    id: 'REQ-DEMO-004',
+    vendor: 'Apex Shadow Corp',
+    vendorId: 'VEND-004',
+    amount: 350000,
+    currency: 'INR',
+    bankAccount: 'APEX-DIFF-999',
+    invoiceId: 'INV-2026-004',
+    poId: null,
+    paymentChannel: 'Manual Transfer',
+    description: 'Scenario 4: High risk / hold target (no PO, shadow vendor)',
+    status: 'ON_HOLD',
+    riskLevel: 'HIGH',
+    requiredApproval: 'Analyst Review',
+    createdAt: '2026-10-06T11:00:00Z',
+    threeWayMatch: {
+      po_match: false,
+      grn_match: false,
+      invoice_match: false,
+      overall_match: 'MISMATCH'
+    },
+    vendorInfo: {
+      approved: false,
+      typicalAmount: 0
+    },
+    approvalInfo: {
+      required: 1,
+      completed: 0,
+      remaining: 1,
+      status: 'On Hold'
+    }
+  },
+  {
     id: 'REQ001',
     vendor: 'ABC Suppliers',
     vendorId: 'V001',
