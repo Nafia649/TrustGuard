@@ -38,11 +38,14 @@ export default function PaymentDetails() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4 mb-2">
-        <Link to="/payments" className="text-text-muted hover:text-text-main">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <h1 className="text-2xl font-bold text-text-main">Payment Details: {payment.id}</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-4">
+          <Link to="/payments" className="text-text-muted hover:text-text-main">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <h1 className="text-2xl font-bold text-text-main">Payment Details: {payment.id}</h1>
+        </div>
+        <Button onClick={() => navigate(`/payments/${id}/approve`)}>Review & Approve</Button>
       </div>
 
       <Card className="bg-navy-surface border-primary/20">

@@ -5,6 +5,7 @@ import Payments from './pages/Payments';
 import NewPayment from './pages/NewPayment';
 import PaymentDetails from './pages/PaymentDetails';
 import RiskAnalysis from './pages/RiskAnalysis';
+import PaymentApproval from './pages/PaymentApproval';
 import Placeholder from './pages/Placeholder';
 
 function App() {
@@ -16,7 +17,7 @@ function App() {
           <Route path="payments" element={<Payments />} />
           <Route path="payments/new" element={<NewPayment />} />
           <Route path="payments/:id" element={<PaymentDetails />} />
-          <Route path="payments/:id/approve" element={<Placeholder title="Approve Payment" />} />
+          <Route path="payments/:id/approve" element={<PaymentApproval />} />
           <Route path="risk" element={<Placeholder title="Risk Analysis Dashboard" />} />
           <Route path="risk/:id" element={<RiskAnalysis />} />
           <Route path="approvals" element={<Placeholder title="Approvals" />} />
