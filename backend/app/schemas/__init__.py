@@ -9,7 +9,15 @@ from app.schemas.policy import (
     PolicyResponse,
     RoutingResult,
 )
-from app.schemas.signature import SigningChallengeResponse, SignatureSubmissionRequest, SignatureResponse
+from app.schemas.signature import (
+    SigningChallengeResponse,
+    SignatureSubmissionRequest,
+    SignatureResponse,
+    WebAuthnRegisterBeginRequest,
+    WebAuthnRegisterBeginResponse,
+    WebAuthnRegisterFinishRequest,
+    WebAuthnRegisterFinishResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -28,4 +36,8 @@ __all__ = [
     "SigningChallengeResponse",
     "SignatureSubmissionRequest",
     "SignatureResponse",
+    "WebAuthnRegisterBeginRequest",
+    "WebAuthnRegisterBeginResponse",
+    "WebAuthnRegisterFinishRequest",
+    "WebAuthnRegisterFinishResponse",
 ]

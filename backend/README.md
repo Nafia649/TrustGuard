@@ -11,8 +11,8 @@ The backend orchestration layer for **TrustGuard + REALKEY**: an intelligent pay
 
 1. **TrustGuard Orchestration:** Coordinates three-way matching, feature preparation for ML fraud risk scoring (XGBoost + SHAP), and policy-driven routing.
 2. **Policy Engine & Risk Routing:** Enforces configurable, versioned routing policies, safety caps, and separation of duties.
-3. **REALKEY Integration:** Enforces cryptographic authorization (WebAuthn / Passkeys) binding exact payment bundles to nonces, policy tiers, and authorized roles.
-4. **Fail-Closed Security:** Enforces separation of duties, tamper detection, and hash-chained audit logging server-side.
+3. **REALKEY Cryptographic Authorization:** Enforces cryptographic authorization (WebAuthn / Passkeys) binding exact payment bundles to nonces, policy tiers, and authorized roles.
+4. **Fail-Closed Security:** Enforces server-side separation of duties, anti-replay nonce enforcement, tamper detection, and hash-chained audit logging.
 
 ---
 
@@ -28,6 +28,8 @@ backend/
 │   │   ├── vendors.py   # Vendor directory controller
 │   │   ├── scoring.py   # Three-Way Match & ML Risk Scoring orchestration
 │   │   ├── policy.py    # Policy configuration & versioning
+│   │   ├── signing.py   # REALKEY cryptographic challenge and signing
+│   │   ├── webauthn.py  # WebAuthn registration integration contracts
 │   │   └── ...
 │   ├── models/          # SQLAlchemy ORM models
 │   │   ├── vendor.py
@@ -41,12 +43,13 @@ backend/
 │   │   └── ledger.py
 │   ├── schemas/         # Pydantic validation schemas
 │   ├── services/        # Business logic services
-│   │   ├── three_way_match.py # Deterministic Three-Way Match facts
-│   │   ├── feature_builder.py # 17 ML features builder & contract validator
-│   │   ├── ml_client.py       # ML Adapter calling predict_risk(features)
-│   │   ├── policy_engine.py   # Policy evaluation, safety safeguards & versioning
-│   │   ├── audit_service.py   # Hash-chained tamper-evident audit log
-│   │   └── seed_service.py    # Acme Ltd demo scenario seeder
+│   │   ├── three_way_match.py   # Deterministic Three-Way Match facts
+│   │   ├── feature_builder.py   # 17 ML features builder & contract validator
+│   │   ├── ml_client.py         # ML Adapter calling predict_risk(features)
+│   │   ├── policy_engine.py     # Policy evaluation, safety safeguards & versioning
+│   │   ├── signature_service.py # REALKEY signing challenges & Fail-Closed verification
+│   │   ├── audit_service.py     # Hash-chained tamper-evident audit log
+│   │   └── seed_service.py      # Acme Ltd demo scenario seeder
 │   ├── config.py        # Settings and environment variables
 │   ├── database.py      # SQLAlchemy engine and session setup
 │   └── main.py          # FastAPI application entry point
@@ -57,11 +60,59 @@ backend/
 │   ├── test_audit.py
 │   ├── test_three_way_match.py
 │   ├── test_policy.py
-│   └── test_scoring_orchestration.py
+│   ├── test_scoring_orchestration.py
+│   └── test_separation_of_duties.py
 ├── .env.example         # Environment template
 ├── requirements.txt     # Python package dependencies
 └── README.md
 ```
+
+---
+
+## REALKEY Cryptographic Authorization (Phase 6)
+
+Payments requiring human sign-off cannot be authorized by simple button clicks. They require cryptographic approval binding the exact payment details to a one-time challenge nonce:
+
+```
+Payment (PENDING_APPROVAL)
+      ↓
+GET /payments/{id}/challenge
+      ↓  (Constructs exact bundle, nonces, policy version, and SHA-256 canonical hash)
+Authorized Approver Signs Bundle
+      ↓
+POST /payments/{id}/sign
+      ↓  (Server-Side Verifications: Fail-Closed)
+      ├─ 1. Role Authorization check (Senior Administrator / Finance Head / Executive)
+      ├─ 2. Separation of Duties (Requester cannot approve, Processor cannot approve)
+      ├─ 3. Two Approvers must be distinct individuals
+      ├─ 4. Nonce Replay & Expiration check
+      ├─ 5. Anti-Tamper Check (Bundle compared against authoritative DB state)
+      └─ 6. Cryptographic signature check
+      ↓
+Authorized only when all required distinct signatures are submitted!
+```
+
+### Exact Signed Bundle Contract
+```json
+{
+  "request_id": "REQ-DEMO-002",
+  "vendor_id": "VEND-002",
+  "amount": 150000.0,
+  "currency": "INR",
+  "beneficiary_bank_account": "GLOB-BANK-002",
+  "invoice_id": "INV-2026-002",
+  "po_id": "PO-2026-002",
+  "timestamp": "2026-10-06T11:00:00",
+  "nonce": "NONCE-...",
+  "expires_at": "2026-10-06T11:10:00",
+  "policy_version": 1,
+  "routing_tier": "ONE_SIGNATURE"
+}
+```
+
+### Fail-Closed Security Rules
+- If any check fails, the backend **fails closed**: no payment authorization occurs.
+- If the payment amount or beneficiary bank account is altered after signing challenge generation, the backend immediately transitions status to `TAMPER_REJECTED` and logs an audit alert (`action="TAMPER_DETECTED"`).
 
 ---
 
@@ -111,7 +162,7 @@ If any safeguard fails, the payment is automatically escalated to `ONE_SIGNATURE
 
 ---
 
-## Scoring Orchestration Pipeline (Phase 5)
+## Scoring Orchestration Pipeline
 
 When `POST /payments/{id}/score` is called, the backend executes the end-to-end orchestration pipeline:
 
@@ -136,11 +187,6 @@ Audit Log (Tamper-evident SHA-256 chained entry)
       ↓
 Frontend Response
 ```
-
-### ML Pluggability
-The ML adapter (`backend/app/services/ml_client.py`) provides a clean interface for the ML teammate:
-- If `ML_PROVIDER=mock`, it uses a deterministic testing mock.
-- To connect the trained XGBoost model, the ML teammate implements `predict_risk(features)` under `ml.predict`, and setting `ML_PROVIDER=real` routes all inference to the real model seamlessly without any backend code refactoring.
 
 ---
 
@@ -222,21 +268,16 @@ Once running:
 
 ### 3. Scoring & Policy Routing
 - **`POST /payments/{id}/score`**: Orchestrates Three-Way Match, derives ML features, queries ML model, evaluates Policy Engine routing, persists routing tier & status, and writes to audit log.
-  ```json
-  {
-    "request_id": "REQ-DEMO-001",
-    "status": "AUTHORIZED",
-    "risk_score": 18,
-    "fraud_probability": 0.18,
-    "routing_tier": "AUTO_APPROVE",
-    "required_signatures": 0,
-    "reasons": [],
-    "business_checks": { "po_exists": 1, "po_approved": 1, "amount_match": true },
-    "routing": { "routing_tier": "AUTO_APPROVE", "status": "AUTHORIZED" }
-  }
-  ```
 
-### 4. Policy Configuration & Versioning
+### 4. REALKEY Signing & Challenges (Phase 6)
+- **`GET /payments/{id}/challenge`**: Generates one-time nonce, binds exact canonical payment bundle, and returns authorized signer roles.
+- **`POST /payments/{id}/sign`**: Verifies cryptographic signature, enforces Separation of Duties, checks for tampering, and records approval.
+
+### 5. WebAuthn Integration Endpoints
+- **`POST /webauthn/register/begin`**: Generates credential creation options for an approver.
+- **`POST /webauthn/register/finish`**: Persists registered public keys and credential IDs.
+
+### 6. Policy Configuration & Versioning
 - **`GET /policy`**: Retrieves the currently active policy configuration.
 - **`PUT /policy`**: Updates policy thresholds, creates a new immutable version, and logs an audit record.
 - **`GET /policy/history`**: Lists full version history of all policies.
