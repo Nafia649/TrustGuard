@@ -14,6 +14,7 @@ class PaymentRequestCreate(BaseModel):
     channel: str = Field(default="portal", description="Payment channel/source")
     document_quality_score: float = Field(default=1.0, ge=0.0, le=1.0, description="Quality score of invoice doc")
     requester_id: Optional[str] = Field(default="emp_001", description="Employee creating the request")
+    preparer_id: Optional[str] = Field(default=None, description="Alias for requester_id (payment preparer)")
 
 
 class RiskReason(BaseModel):

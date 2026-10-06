@@ -13,6 +13,7 @@ from app.api.signing import router as signing_router
 from app.api.webauthn import router as webauthn_router
 from app.api.audit import router as audit_router
 from app.api.invoices import router as invoices_router
+from app.api.realkey import router as realkey_router
 
 from app.services.migration_service import init_db
 
@@ -42,13 +43,23 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(seed_router)
 app.include_router(payments_router)
+app.include_router(payments_router, prefix="/api/v1")
 app.include_router(vendors_router)
+app.include_router(vendors_router, prefix="/api/v1")
 app.include_router(scoring_router)
+app.include_router(scoring_router, prefix="/api/v1")
 app.include_router(policy_router)
+app.include_router(policy_router, prefix="/api/v1")
 app.include_router(signing_router)
+app.include_router(signing_router, prefix="/api/v1")
 app.include_router(webauthn_router)
+app.include_router(webauthn_router, prefix="/api/v1")
+app.include_router(realkey_router)
+app.include_router(realkey_router, prefix="/api/v1")
 app.include_router(audit_router)
+app.include_router(audit_router, prefix="/api/v1")
 app.include_router(invoices_router)
+app.include_router(invoices_router, prefix="/api/v1")
 
 
 @app.get("/", tags=["Root"])
