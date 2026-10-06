@@ -218,3 +218,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# TrustGuard Uploads & Database
+uploads/
+backend/uploads/
+*.db
+trustguard.db
+frontend-workspace/
+
+
+

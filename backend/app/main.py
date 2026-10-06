@@ -12,6 +12,7 @@ from app.api.policy import router as policy_router
 from app.api.signing import router as signing_router
 from app.api.webauthn import router as webauthn_router
 from app.api.audit import router as audit_router
+from app.api.invoices import router as invoices_router
 
 from app.services.migration_service import init_db
 
@@ -47,6 +48,7 @@ app.include_router(policy_router)
 app.include_router(signing_router)
 app.include_router(webauthn_router)
 app.include_router(audit_router)
+app.include_router(invoices_router)
 
 
 @app.get("/", tags=["Root"])

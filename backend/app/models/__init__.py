@@ -7,6 +7,7 @@ from app.models.signature import Signature
 from app.models.policy import PolicyVersion
 from app.models.audit_log import AuditLog
 from app.models.ledger import LedgerEntry
+from app.models.invoice_document import InvoiceDocument
 
 __all__ = [
     "Vendor",
@@ -18,4 +19,5 @@ __all__ = [
     "PolicyVersion",
     "AuditLog",
     "LedgerEntry",
+    "InvoiceDocument",
 ]
