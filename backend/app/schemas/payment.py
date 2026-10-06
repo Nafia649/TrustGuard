@@ -54,3 +54,9 @@ class PaymentResponse(BaseModel):
             except Exception:
                 return v
         return v
+
+
+class AnalystDecisionRequest(BaseModel):
+    decision: str
+    reason: str | None = None
+    analyst_id: str = "analyst_01"

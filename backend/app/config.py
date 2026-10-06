@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     DATABASE_URL: str = "sqlite:///./trustguard.db"
-    ML_PROVIDER: str = "mock"
+    ML_PROVIDER: str = "xgboost"
     WEBAUTHN_RP_ID: str = "localhost"
     WEBAUTHN_RP_NAME: str = "TrustGuard REALKEY"
     WEBAUTHN_ORIGIN: str = "http://localhost:5173"

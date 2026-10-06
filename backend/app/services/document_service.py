@@ -10,6 +10,7 @@ from app.config import settings
 from app.models.invoice_document import InvoiceDocument
 from app.models.payment_request import PaymentRequest
 from app.models.vendor import Vendor
+from app.models.purchase_order import PurchaseOrder
 from app.schemas.invoice import (
     InvoiceDocumentResponse,
     InvoicePaymentCreationResponse,
@@ -320,6 +321,12 @@ def create_payment_request_from_invoice(
     currency = confirmation.currency if confirmation else (extracted.currency if extracted else "INR")
     bank_account = confirmation.bank_account if confirmation else (extracted.bank_account if extracted else None)
     po_id = confirmation.po_id if confirmation else (extracted.po_id if extracted else None)
+    
+    if po_id:
+        po_record = db.query(PurchaseOrder).filter(PurchaseOrder.po_id == po_id).first()
+        if not po_record:
+            po_id = None
+            
     vendor_id = confirmation.vendor_id if confirmation else (extracted.vendor_id if extracted else None)
     vendor_name = confirmation.vendor_name if confirmation else (extracted.vendor_name if extracted else None)
     requester_id = (confirmation.requester_id if confirmation else None) or doc.uploader_id or "emp_accounts_01"

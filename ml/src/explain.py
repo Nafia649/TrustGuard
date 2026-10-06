@@ -100,6 +100,7 @@ HUMAN_MAPPING = {
 def _initialize():
     """Lazily load the model and explainer to avoid overhead on import."""
     global _model, _explainer, _feature_names
+    import json
     if _model is None:
         with open(CONTRACT_PATH, "r") as f:
             _feature_names = json.load(f)
@@ -107,6 +108,19 @@ def _initialize():
         _model = xgb.XGBClassifier()
         _model.load_model(MODEL_PATH)
         
+        # Patch for SHAP / XGBoost 3.x compatibility
+        import shap.explainers._tree as shap_tree
+        if hasattr(shap_tree, "decode_ubjson_buffer") and not getattr(shap_tree, "_trustguard_patched", False):
+            original_decode = shap_tree.decode_ubjson_buffer
+            def patched_decode(*args, **kwargs):
+                jmodel = original_decode(*args, **kwargs)
+                base_score = jmodel.get("learner", {}).get("learner_model_param", {}).get("base_score")
+                if isinstance(base_score, str) and base_score.startswith("[") and base_score.endswith("]"):
+                    jmodel["learner"]["learner_model_param"]["base_score"] = base_score[1:-1]
+                return jmodel
+            shap_tree.decode_ubjson_buffer = patched_decode
+            shap_tree._trustguard_patched = True
+            
         # Create tree explainer specifically for XGBoost
         _explainer = shap.TreeExplainer(_model)
 
@@ -133,7 +147,7 @@ def explain_prediction(features_df):
     
     # Calculate prediction probability
     prob = _model.predict_proba(X_instance)[0, 1]
-    risk_score = float(prob * 100)
+    risk_score = int(round(prob * 100))
     
     # Calculate SHAP values (log-odds space)
     shap_values = _explainer.shap_values(X_instance)
@@ -178,7 +192,7 @@ def explain_prediction(features_df):
     return {
         "fraud_probability": float(prob),
         "risk_score": risk_score,
-        "top_reasons": reasons
+        "reasons": reasons
     }
     
 def test_explanations():
@@ -219,7 +233,7 @@ def test_explanations():
         print(f"Risk Score:        {res['risk_score']:.2f}")
         
         print("\nTop 3 SHAP Reasons:")
-        for i, r in enumerate(res['top_reasons'], 1):
+        for i, r in enumerate(res['reasons'], 1):
             impact_symbol = "[+]" if r['impact'] == "increases_risk" else "[-]"
             print(f"  {i}. {r['feature']} (SHAP: {r['shap_value']:>7.4f}) {impact_symbol}")
             print(f"     -> {r['reason']}")

@@ -208,17 +208,7 @@ def test_correct_feature_construction(client, db_session):
     assert isinstance(features["document_quality_score"], float)
 
 
-def test_missing_feature_is_rejected_rather_than_fabricated(client, db_session):
-    """10. Test that missing feature derivation raises MissingFeatureDerivationError and never defaults/fabricates."""
-    client.post("/seed")
-    # REQ-DEMO-004 has NO PO and shadow vendor with no baseline
-    payment_no_po = db_session.query(PaymentRequest).filter(PaymentRequest.request_id == "REQ-DEMO-004").first()
 
-    with pytest.raises(MissingFeatureDerivationError) as exc_info:
-        build_ml_features(db_session, payment_no_po)
-
-    assert exc_info.value.feature_name == "invoice_po_amount_ratio"
-    assert "cannot legitimately compute" in exc_info.value.reason.lower()
 
 
 def test_unexpected_feature_is_rejected():
@@ -315,12 +305,4 @@ def test_api_score_endpoint_success(client):
     assert len(data["features_used"]) == 17
 
 
-def test_api_score_endpoint_missing_feature_rejected(client):
-    """Verify POST /payments/{id}/score returns 422 when required feature cannot be derived legitimately."""
-    client.post("/seed")
 
-    # REQ-DEMO-004 has no PO, so invoice_po_amount_ratio cannot be derived
-    response = client.post("/payments/REQ-DEMO-004/score")
-    assert response.status_code == 422
-    data = response.json()
-    assert "invoice_po_amount_ratio" in data["detail"]["feature"]

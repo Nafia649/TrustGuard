@@ -14,7 +14,7 @@ from app.models.approver import Approver
 from app.models.policy import PolicyVersion
 from app.models.signature import Signature
 from app.models.ledger import LedgerEntry
-from app.schemas.payment import PaymentRequestCreate, PaymentResponse
+from app.schemas.payment import PaymentRequestCreate, PaymentResponse, AnalystDecisionRequest
 from app.schemas.signature import (
     SigningChallengeRequest,
     SigningChallengeResponse,
@@ -1188,3 +1188,49 @@ def tamper_demo(
         message=demo_result.message,
         audit_logged=audit_logged,
     )
+
+@router.post(
+    "/payments/{request_id}/analyst-decision",
+    response_model=PaymentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Submit analyst decision for held payments",
+)
+def analyst_decision(
+    request_id: str,
+    payload: AnalystDecisionRequest,
+    db: Session = Depends(get_db),
+):
+    payment = db.query(PaymentRequest).filter(PaymentRequest.request_id == request_id).first()
+    if not payment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Payment request '{request_id}' not found.",
+        )
+    if payment.status != "ON_HOLD":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Only ON_HOLD payments can be reviewed by an analyst. Current status: {payment.status}",
+        )
+        
+    if payload.decision == "ALLOW":
+        payment.status = "PENDING_APPROVAL"
+        payment.routing_tier = "TWO_SIGNATURES"
+        payment.required_signatures = 2
+    elif payload.decision == "BLOCK":
+        payment.status = "REJECTED"
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid decision")
+        
+    db.commit()
+    db.refresh(payment)
+    
+    log_event(
+        db=db,
+        user_id=payload.analyst_id,
+        action=f"ANALYST_{payload.decision}",
+        result="SUCCESS",
+        request_id=request_id,
+        details={"reason": payload.reason}
+    )
+    
+    return payment

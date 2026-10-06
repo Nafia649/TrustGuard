@@ -124,13 +124,17 @@ class MLClient:
         if settings.ML_PROVIDER != "mock":
             try:
                 # Target interface contract defined by ML teammate
-                from ml.predict import predict_risk as ml_predict  # type: ignore
+                from ml.src.predict import predict_risk as ml_predict  # type: ignore
                 return ml_predict(features)
             except ImportError as err:
-                logger.warning(
-                    "ML module 'ml.predict' not found. Falling back to mock adapter. Error: %s",
-                    err,
+                logger.error(
+                    "CRITICAL: Failed to load real XGBoost provider. Provider configured as %s. Error: %s",
+                    settings.ML_PROVIDER, err
                 )
+                raise RuntimeError(f"Failed to load XGBoost provider: {err}")
+            except Exception as err:
+                logger.error(f"CRITICAL: Model execution failed: {err}")
+                raise RuntimeError(f"Model execution failed: {err}")
 
         # 3. Default to deterministic mock provider
         return mock_predict_risk(features)

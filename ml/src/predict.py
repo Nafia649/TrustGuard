@@ -29,7 +29,7 @@ CONTINUOUS_BOUNDS = {
 }
 
 # Import SHAP explanation pipeline (which already loads the XGBoost model natively)
-from explain import explain_prediction
+from .explain import explain_prediction
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ML_DIR = os.path.dirname(SCRIPT_DIR)
@@ -119,7 +119,7 @@ def predict_risk(features: dict) -> dict:
     return {
         "fraud_probability": explanation_data["fraud_probability"],
         "risk_score": explanation_data["risk_score"],
-        "reasons": [r["reason"] for r in explanation_data["top_reasons"]]
+        "reasons": [r["reason"] for r in explanation_data["reasons"]]
     }
 
 
