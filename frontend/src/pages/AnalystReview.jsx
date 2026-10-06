@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getPayments, getPayment, submitAnalystDecision } from '../api/paymentApi';
 import { ShieldAlert, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import Card from '../components/common/Card';
+import { formatINR } from '../utils/formatters';
 
 export default function AnalystReview() {
   const [payments, setPayments] = useState([]);
@@ -55,54 +57,59 @@ export default function AnalystReview() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4">
-      <div className="flex items-center gap-3 mb-8">
-        <ShieldAlert className="h-8 w-8 text-red-600" />
-        <h1 className="text-3xl font-bold text-gray-900">Analyst Review</h1>
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div>
+        <div className="flex items-center gap-3 mb-1">
+          <ShieldAlert className="h-8 w-8 text-danger" />
+          <h1 className="text-2xl font-bold text-text-main">Analyst Review</h1>
+        </div>
+        <p className="text-sm text-text-muted">Review payments that have been routed to ON HOLD.</p>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-md border border-red-200">
+        <div className="p-4 bg-danger/10 text-danger rounded-md border border-danger/20 flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5" />
           {error}
         </div>
       )}
       
       {success && (
-        <div className="mb-6 p-4 bg-green-50 text-green-700 rounded-md border border-green-200">
+        <div className="p-4 bg-success/10 text-success rounded-md border border-success/20 flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" />
           {success}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Queue List */}
-        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-            <h2 className="font-semibold text-gray-700">Held Payments</h2>
-            <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+        <div className="lg:col-span-1 bg-navy-surface rounded-xl border border-navy-border flex flex-col h-[600px]">
+          <div className="p-4 border-b border-navy-border flex justify-between items-center bg-navy-bg/50">
+            <h2 className="font-semibold text-text-main">Held Payments</h2>
+            <span className="bg-danger/20 text-danger text-[10px] font-bold px-2 py-0.5 rounded border border-danger/30">
               {payments.length} pending
             </span>
           </div>
           
-          <div className="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
+          <div className="divide-y divide-navy-border/50 overflow-y-auto flex-1">
             {loading ? (
-              <div className="p-8 text-center text-gray-500">Loading queue...</div>
+              <div className="p-8 text-center text-text-muted">Loading queue...</div>
             ) : payments.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">No payments on hold.</div>
+              <div className="p-8 text-center text-text-muted">No payments on hold.</div>
             ) : (
               payments.map(p => (
                 <div 
                   key={p.request_id}
                   onClick={() => handleSelect(p.request_id)}
-                  className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${selectedPayment?.request_id === p.request_id ? 'bg-blue-50 border-l-4 border-blue-600' : 'border-l-4 border-transparent'}`}
+                  className={`p-4 cursor-pointer hover:bg-navy-border/30 transition-colors ${selectedPayment?.request_id === p.request_id ? 'bg-primary/5 border-l-4 border-primary' : 'border-l-4 border-transparent'}`}
                 >
                   <div className="flex justify-between items-start mb-1">
-                    <span className="font-medium text-gray-900">{p.invoice_id}</span>
-                    <span className="text-sm font-bold text-red-600">Risk {p.risk_score}</span>
+                    <span className="font-mono text-sm font-bold text-primary">{p.request_id}</span>
+                    <span className="text-xs font-bold text-danger">Risk {p.risk_score}</span>
                   </div>
-                  <div className="text-sm text-gray-600 mb-2">{p.vendor_id}</div>
+                  <div className="text-sm text-text-muted mb-2">Vendor: {p.vendor_id}</div>
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-gray-500">{new Date(p.timestamp).toLocaleDateString()}</span>
-                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded">{p.status}</span>
+                    <span className="text-text-muted">{new Date(p.timestamp).toLocaleDateString()}</span>
+                    <span className="bg-danger/20 text-danger px-2 py-0.5 rounded font-bold border border-danger/30">{p.status}</span>
                   </div>
                 </div>
               ))
@@ -113,55 +120,55 @@ export default function AnalystReview() {
         {/* Payment Details */}
         <div className="lg:col-span-2">
           {selectedPayment ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex justify-between items-start mb-4">
+            <div className="bg-navy-surface rounded-xl border border-navy-border">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedPayment.vendor_id}</h2>
-                    <p className="text-gray-500">Invoice: {selectedPayment.invoice_id} | Payment: {selectedPayment.request_id}</p>
+                    <h2 className="text-2xl font-bold text-text-main mb-1">{selectedPayment.vendor_id}</h2>
+                    <p className="text-text-muted font-mono text-sm">Invoice: {selectedPayment.invoice_id} | Payment: {selectedPayment.request_id}</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {selectedPayment.amount.toLocaleString()} {selectedPayment.currency}
+                    <div className="text-2xl font-bold text-text-main">
+                      {formatINR ? formatINR(selectedPayment.amount) : `${selectedPayment.amount.toLocaleString()} ${selectedPayment.currency}`}
                     </div>
-                    <p className="text-sm text-gray-500">PO: {selectedPayment.po_id || 'None'}</p>
+                    <p className="text-sm text-text-muted mt-1">PO: {selectedPayment.po_id || 'None'}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="bg-red-50 p-4 rounded-lg border border-red-100 text-center">
-                    <div className="text-sm text-red-600 font-medium mb-1">Risk Score</div>
-                    <div className="text-3xl font-bold text-red-700">{selectedPayment.risk_score}</div>
+                  <div className="bg-danger/10 p-4 rounded-lg border border-danger/20 text-center">
+                    <div className="text-sm text-danger font-medium mb-1">Risk Score</div>
+                    <div className="text-3xl font-bold text-danger">{selectedPayment.risk_score}</div>
                   </div>
-                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 text-center">
-                    <div className="text-sm text-orange-600 font-medium mb-1">Routing Tier</div>
-                    <div className="text-xl font-bold text-orange-700 mt-2">{selectedPayment.routing_tier}</div>
+                  <div className="bg-warning/10 p-4 rounded-lg border border-warning/20 text-center">
+                    <div className="text-sm text-warning font-medium mb-1">Routing Tier</div>
+                    <div className="text-xl font-bold text-warning mt-2">{selectedPayment.routing_tier}</div>
                   </div>
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-center">
-                    <div className="text-sm text-gray-600 font-medium mb-1">Status</div>
-                    <div className="text-xl font-bold text-gray-800 mt-2">{selectedPayment.status}</div>
+                  <div className="bg-navy-border/30 p-4 rounded-lg border border-navy-border text-center">
+                    <div className="text-sm text-text-muted font-medium mb-1">Status</div>
+                    <div className="text-xl font-bold text-text-main mt-2">{selectedPayment.status}</div>
                   </div>
                 </div>
 
-                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-orange-500" />
+                <h3 className="text-lg font-semibold text-text-main mb-3 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-warning" />
                   Top Risk Factors (SHAP)
                 </h3>
-                <ul className="space-y-2 mb-6 bg-white border border-gray-200 rounded-lg p-4">
+                <ul className="space-y-2 mb-6 bg-navy-bg border border-navy-border rounded-lg p-4">
                   {selectedPayment.risk_reasons ? (
                     JSON.parse(selectedPayment.risk_reasons).map((reason, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
-                        <span className="text-red-500 mt-0.5">•</span>
+                      <li key={idx} className="flex items-start gap-2 text-sm text-text-muted">
+                        <span className="text-danger mt-0.5">•</span>
                         {reason}
                       </li>
                     ))
                   ) : (
-                    <li className="text-sm text-gray-500">No ML explanation available.</li>
+                    <li className="text-sm text-text-muted">No ML explanation available.</li>
                   )}
                 </ul>
-
-                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-blue-500" />
+                
+                <h3 className="text-lg font-semibold text-text-main mb-3 flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-primary" />
                   Analyst Decision
                 </h3>
                 
@@ -169,7 +176,7 @@ export default function AnalystReview() {
                   <button
                     onClick={() => handleDecision('ALLOW')}
                     disabled={actionLoading}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-1 bg-success hover:bg-success/80 text-navy-bg font-bold py-3 px-4 rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <CheckCircle className="h-5 w-5" />
                     Allow & Route for Approval
@@ -177,7 +184,7 @@ export default function AnalystReview() {
                   <button
                     onClick={() => handleDecision('BLOCK')}
                     disabled={actionLoading}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-1 bg-danger hover:bg-danger/80 text-white font-bold py-3 px-4 rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <XCircle className="h-5 w-5" />
                     Block / Reject Payment
@@ -186,8 +193,8 @@ export default function AnalystReview() {
               </div>
             </div>
           ) : (
-            <div className="bg-gray-50 rounded-xl border border-gray-200 h-full min-h-[400px] flex items-center justify-center text-gray-400 flex-col gap-3">
-              <Clock className="h-12 w-12" />
+            <div className="bg-navy-surface rounded-xl border border-navy-border h-[600px] flex items-center justify-center text-text-muted flex-col gap-3">
+              <Clock className="h-12 w-12 opacity-50" />
               <p>Select a payment from the queue to review</p>
             </div>
           )}

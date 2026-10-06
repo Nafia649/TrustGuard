@@ -11,8 +11,9 @@ import Placeholder from './pages/Placeholder';
 
 import Approvals from './pages/Approvals';
 import Ledger from './pages/Ledger';
-
+import PolicySettings from './pages/PolicySettings';
 import AnalystReview from './pages/AnalystReview';
+import AuditLog from './pages/AuditLog';
 
 function App() {
   return (
@@ -29,9 +30,9 @@ function App() {
           <Route path="risk/:id" element={<RiskAnalysis />} />
           <Route path="approval" element={<Approvals />} />
           <Route path="analyst" element={<AnalystReview />} />
-          <Route path="policy" element={<Placeholder title="Policy Settings" />} />
+          <Route path="policy" element={<PolicySettings />} />
           <Route path="ledger" element={<Ledger />} />
-          <Route path="audit" element={<Placeholder title="Audit Log" />} />
+          <Route path="audit" element={<AuditLog />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
