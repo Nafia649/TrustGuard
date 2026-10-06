@@ -10,8 +10,9 @@ The backend orchestration layer for **TrustGuard + REALKEY**: an intelligent pay
 ## Architecture Overview
 
 1. **TrustGuard Orchestration:** Coordinates three-way matching, feature preparation for ML fraud risk scoring (XGBoost + SHAP), and policy-driven routing.
-2. **REALKEY Integration:** Enforces cryptographic authorization (WebAuthn / Passkeys) binding exact payment bundles to nonces, policy tiers, and authorized roles.
-3. **Fail-Closed Security:** Enforces separation of duties, tamper detection, and hash-chained audit logging server-side.
+2. **Policy Engine & Risk Routing:** Enforces configurable, versioned routing policies, safety caps, and separation of duties.
+3. **REALKEY Integration:** Enforces cryptographic authorization (WebAuthn / Passkeys) binding exact payment bundles to nonces, policy tiers, and authorized roles.
+4. **Fail-Closed Security:** Enforces separation of duties, tamper detection, and hash-chained audit logging server-side.
 
 ---
 
@@ -26,6 +27,7 @@ backend/
 │   │   ├── payments.py  # Payment request lifecycle
 │   │   ├── vendors.py   # Vendor directory controller
 │   │   ├── scoring.py   # Three-Way Match & ML Risk Scoring orchestration
+│   │   ├── policy.py    # Policy configuration & versioning
 │   │   └── ...
 │   ├── models/          # SQLAlchemy ORM models
 │   │   ├── vendor.py
@@ -42,6 +44,7 @@ backend/
 │   │   ├── three_way_match.py # Deterministic Three-Way Match facts
 │   │   ├── feature_builder.py # 17 ML features builder & contract validator
 │   │   ├── ml_client.py       # ML Adapter calling predict_risk(features)
+│   │   ├── policy_engine.py   # Policy evaluation, safety safeguards & versioning
 │   │   ├── audit_service.py   # Hash-chained tamper-evident audit log
 │   │   └── seed_service.py    # Acme Ltd demo scenario seeder
 │   ├── config.py        # Settings and environment variables
@@ -52,7 +55,8 @@ backend/
 │   ├── test_health.py
 │   ├── test_payments.py
 │   ├── test_audit.py
-│   └── test_three_way_match.py
+│   ├── test_three_way_match.py
+│   └── test_policy.py
 ├── .env.example         # Environment template
 ├── requirements.txt     # Python package dependencies
 └── README.md
@@ -73,6 +77,36 @@ The backend executes deterministic business verification checks on invoice submi
 
 > [!IMPORTANT]
 > **Three-Way Match Facts ≠ ML Score:** Three-way matching checks produce objective business facts. They do not calculate fraud probability or approve payments.
+
+---
+
+## Policy Engine & Risk Routing (Phase 4)
+
+The routing engine dynamically reads policy rules from the database and evaluates approval requirements without hardcoded thresholds:
+
+```
+ML Risk Score (0-100) + Safety Rules  →  Policy Engine
+                                            ↓
+   Score < 30 (under caps & matching) →  AUTO_APPROVE   (0 signatures, AUTHORIZED)
+   Score 30–70                        →  ONE_SIGNATURE  (1 signature, PENDING_APPROVAL)
+   Score 70–90                        →  TWO_SIGNATURES (2 signatures, PENDING_APPROVAL)
+   Score > 90                         →  HOLD           (0 signatures, ON_HOLD)
+```
+
+### Auto-Approval Safeguards (Mandatory)
+A low ML risk score is **not** automatically sufficient to auto-approve. The backend unconditionally verifies:
+1. **Single Amount Cap:** Payment amount must be $\le$ `auto_approve_cap_amount` (default ₹50,000).
+2. **Cumulative Vendor Cap:** 30-day cumulative auto-approvals for the vendor must not exceed `monthly_auto_approved_cap_per_vendor` (default ₹200,000).
+3. **Unchanged Bank Account:** Beneficiary bank details must match registered vendor details.
+4. **Established Vendor:** Vendor must not be new (registered $\ge$ 30 days).
+5. **Three-Way Match:** PO, approved status, GRN, and amount match must all be satisfied.
+
+If any safeguard fails, the payment is automatically escalated to `ONE_SIGNATURE` or `TWO_SIGNATURES`.
+
+### Mandatory Unconditional Escalations
+- **New Vendor:** Escalated to `ONE_SIGNATURE` (cannot be auto-approved).
+- **Bank Detail Change:** Escalated to `TWO_SIGNATURES` for dual cryptographic sign-off.
+- **Unapproved Vendor or Duplicate Invoice:** Immediately placed on `HOLD`.
 
 ---
 
@@ -102,16 +136,6 @@ The ML component (`predict_risk(features)`) is owned by the ML teammate. The bac
 | 16 | `possible_split_payment` | binary (0/1) | Multiple transactions to same vendor in 24h |
 | 17 | `document_quality_score` | float (0–1) | Supporting document quality score |
 
-### Critical Data Integrity Rule
-- **Zero Fabrication:** The backend **never** guesses, defaults, or fabricates an ML feature.
-- If a required feature cannot legitimately be derived (e.g. `invoice_po_amount_ratio` when no PO exists, or `amount_vs_vendor_avg` when a vendor has zero history and zero baseline), `feature_builder` raises `MissingFeatureDerivationError`.
-- Missing required derivations return HTTP 422 Unprocessable Content.
-- Unexpected features are strictly rejected.
-
-### ML Advisory vs. Backend Policy Authority
-- **ML Output is Advisory Intelligence Only:** Returns `fraud_probability`, `risk_score` (0–100), and `reasons`.
-- **Policy Engine Authority:** The backend never approves a transaction simply because ML returned a low risk score. Mandatory policy rules and separation of duties govern all authorization.
-
 ---
 
 ## Local Setup & Installation
@@ -139,12 +163,6 @@ Copy `.env.example` to `.env`:
 cp .env.example .env
 ```
 
-Key environment settings:
-- `DATABASE_URL`: `sqlite:///./trustguard.db` (Default SQLite for MVP)
-- `ML_PROVIDER`: `mock` (Deterministic ML adapter for early integration)
-- `WEBAUTHN_RP_ID`: `localhost`
-- `ALLOWED_ORIGINS`: Allowed CORS origins for the frontend (e.g. `http://localhost:5173`)
-
 ---
 
 ## Running the Application
@@ -165,22 +183,20 @@ Once running:
 ## API Endpoints
 
 ### 1. Seed Demo Data
-- **`POST /seed`**: Seeds deterministic demo data for **Acme Ltd**, including:
-  - Policy Version 1 (default thresholds and required roles)
-  - Authorized approvers (Senior Administrator, Finance Head, Senior Executive)
-  - 4 vendors (Acme Industrial Supplies, Global Logistics Corp, Apex Cloud Infrastructure, Shadow Shell Enterprises)
-  - Purchase Orders & Goods Receipts (GRNs)
-  - 4 Demo Payment Scenarios (`REQ-DEMO-001` through `REQ-DEMO-004`)
+- **`POST /seed`**: Seeds deterministic demo data for **Acme Ltd**.
 
 ### 2. Payment Requests
-- **`POST /payment-requests`**: Creates a payment request. Enforces server-side validation against registered vendors, linked POs, and duplicate invoice detection.
-- **`GET /payments`**: Lists payments with optional filters (`status`, `vendor_id`, pagination).
+- **`POST /payment-requests`**: Creates a payment request.
+- **`GET /payments`**: Lists payments with optional filters.
 - **`GET /payments/{id}`**: Retrieves a specific payment request by ID.
 
-### 3. Scoring Orchestration (Phase 3)
-- **`POST /payments/{id}/score`**: Executes the Three-Way Match, derives the 17 legitimate ML features, invokes `predict_risk(features)`, updates the payment's risk score and reasons, and writes to the audit log.
-  - Response clearly separates `business_checks` (facts) from `ml_assessment` (intelligence).
-  - Status transitions to `SCORED` (not authorized/approved).
+### 3. Scoring & Policy Routing
+- **`POST /payments/{id}/score`**: Orchestrates Three-Way Match, derives ML features, queries ML model, evaluates Policy Engine routing, persists routing tier & status, and writes to audit log.
+
+### 4. Policy Configuration & Versioning
+- **`GET /policy`**: Retrieves the currently active policy configuration.
+- **`PUT /policy`**: Updates policy thresholds, creates a new immutable version, and logs an audit record.
+- **`GET /policy/history`**: Lists full version history of all policies.
 
 ---
 

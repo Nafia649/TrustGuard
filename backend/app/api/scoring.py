@@ -13,6 +13,8 @@ from app.services.feature_builder import (
     FeatureContractValidationError,
 )
 from app.services.ml_client import ml_client
+from app.services.policy_engine import evaluate_routing
+from app.schemas.policy import RoutingResult
 from app.services.audit_service import log_event
 
 router = APIRouter(tags=["Scoring"])
@@ -43,6 +45,7 @@ class PaymentScoreResponse(BaseModel):
     payment_status: str
     business_checks: BusinessChecksResponse
     ml_assessment: MLAssessmentResponse
+    routing: RoutingResult
     features_used: Dict[str, Any]
 
 
@@ -50,20 +53,21 @@ class PaymentScoreResponse(BaseModel):
     "/payments/{request_id}/score",
     response_model=PaymentScoreResponse,
     status_code=status.HTTP_200_OK,
-    summary="Evaluate payment risk using Three-Way Match facts and ML intelligence",
+    summary="Evaluate payment risk and determine approval routing tier",
 )
 def score_payment(
     request_id: str,
     db: Session = Depends(get_db),
 ):
     """
-    Orchestrates the scoring pipeline:
+    Orchestrates the complete scoring & routing pipeline:
     1. Loads payment request
     2. Runs Three-Way Matching business checks (deterministic facts)
     3. Derives legitimate ML features (fails if data is missing without fabrication)
     4. Calls ML adapter predict_risk(features)
-    5. Records fraud score and explanations on the payment record
-    6. Does NOT make final policy/approval decisions (reserved for Policy Engine)
+    5. Evaluates configurable Policy Engine routing & safety rules
+    6. Updates payment status, routing tier, and required signature counts
+    7. Emits tamper-evident audit records
     """
     # 1. Fetch payment request
     payment = (
@@ -105,18 +109,26 @@ def score_payment(
     # 4. Invoke ML Adapter (predict_risk)
     ml_result = ml_client.predict_risk(features)
 
-    # 5. Store ML assessment on payment record
+    # 5. Evaluate dynamic Policy Engine routing
+    routing = evaluate_routing(
+        db=db,
+        payment=payment,
+        three_way_facts=three_way_facts,
+        risk_score=float(ml_result["risk_score"]),
+    )
+
+    # 6. Persist ML assessment and policy routing decisions
     payment.fraud_probability = ml_result["fraud_probability"]
     payment.risk_score = ml_result["risk_score"]
     payment.risk_reasons = json.dumps(ml_result["reasons"])
-    # Transition status from PENDING to SCORED without approving
-    if payment.status == "PENDING":
-        payment.status = "SCORED"
+    payment.routing_tier = routing.routing_tier
+    payment.required_signatures = routing.required_signatures
+    payment.status = routing.status
 
     db.commit()
     db.refresh(payment)
 
-    # 6. Audit log the scoring event
+    # 7. Audit log the scoring and routing event
     log_event(
         db=db,
         user_id="trustguard_scoring_orchestrator",
@@ -126,9 +138,11 @@ def score_payment(
         details={
             "risk_score": ml_result["risk_score"],
             "fraud_probability": ml_result["fraud_probability"],
-            "reasons_count": len(ml_result["reasons"]),
-            "three_way_po_exists": three_way_facts["po_exists"],
-            "three_way_amount_match": three_way_facts["amount_match"],
+            "routing_tier": routing.routing_tier,
+            "status": routing.status,
+            "required_signatures": routing.required_signatures,
+            "escalation_reasons": routing.escalation_reasons,
+            "policy_version": routing.policy_version,
         },
     )
 
@@ -137,5 +151,6 @@ def score_payment(
         payment_status=payment.status,
         business_checks=BusinessChecksResponse(**three_way_facts),
         ml_assessment=MLAssessmentResponse(**ml_result),
+        routing=routing,
         features_used=features,
     )

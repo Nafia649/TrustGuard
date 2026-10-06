@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
@@ -27,5 +28,23 @@ class PolicyConfig(BaseModel):
 
 class PolicyUpdateRequest(BaseModel):
     policy: PolicyConfig
-    changed_by: str
+    changed_by: str = Field(..., description="User ID or role initiating the policy modification")
     change_reason: Optional[str] = "Policy threshold adjustment"
+
+
+class PolicyResponse(BaseModel):
+    version: int
+    policy: PolicyConfig
+    created_at: datetime
+    created_by: str
+    active: bool
+
+
+class RoutingResult(BaseModel):
+    risk_score: float
+    routing_tier: str
+    required_signatures: int
+    status: str
+    authorized_roles: List[str]
+    escalation_reasons: List[str]
+    policy_version: int
