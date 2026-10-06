@@ -299,6 +299,52 @@ The ML system is built to act purely as an intelligence signal. The returned `ri
 
 **CRITICAL:** The prediction interface **does not authorize transactions**. The Backend Policy Engine must interpret the `risk_score` (e.g., `score > 80` = Manual Hold) and execute the actual TrustGuard business logic and REALKEY signature requests.
 
+## Backend Integration Boundary
+
+The ML component has finalized its interface in Phase 7. The backend integration point is exposed via a clean Python module import:
+
+```python
+from ml.src.predict import predict_risk
+
+# Pass the 17 features as a dictionary to receive the risk assessment
+assessment = predict_risk(backend_features_dict)
+```
+
+### Feature Derivation Gap
+
+Currently, the `backend/` directory is essentially empty and has no internal representation of payment requests or three-way matches. Therefore, **all 17 ML features represent an integration gap.**
+
+The Backend Policy Engine is responsible for deriving the following 17 features and delivering them to `predict_risk()`:
+
+1. `po_exists` (0/1 int)
+2. `po_approved` (0/1 int)
+3. `grn_exists` (0/1 int)
+4. `vendor_approved` (0/1 int)
+5. `invoice_po_amount_ratio` (float)
+6. `duplicate_invoice` (0/1 int)
+7. `bank_account_changed` (0/1 int)
+8. `new_vendor` (0/1 int)
+9. `vendor_age_days` (float/int)
+10. `past_genuine_payments` (float/int)
+11. `amount_vs_vendor_avg` (float)
+12. `unusual_time` (0/1 int)
+13. `suspicious_channel` (0/1 int)
+14. `payments_last_24h` (float/int)
+15. `amount_last_24h` (float)
+16. `possible_split_payment` (0/1 int)
+17. `document_quality_score` (float)
+
+**Important Constraints for Backend Team:**
+*   **Do not send missing features.** The ML interface will refuse to silently fill missing fields with defaults. All 17 features are mandatory.
+*   **Do not send extra features.** The interface strictly validates input bounds to prevent data leakage and unexpected edge cases.
+*   **Do not invent data.** If a feature is not yet fully implemented in the backend (e.g., `document_quality_score`), the backend must derive a reasonable placeholder explicitly on its side, not by altering the ML contract.
+
+### Architectural Boundary Checklist
+
+*   [x] **Advisory Only**: The ML model provides `fraud_probability`, `risk_score`, and `reasons`. It does **not** make decisions.
+*   [x] **Policy Engine Responsibility**: The backend must take the `risk_score`, run it against thresholds, and determine if an automated approval, manual hold, or REALKEY signature is required.
+*   [x] **No Internal REST Wrapping**: To keep dependencies lightweight, `predict_risk` is exposed natively. The Backend team can wrap this inside their own FastAPI route if client-side polling is required.
+
 ## Directory Structure
 
 ```
