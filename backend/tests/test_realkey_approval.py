@@ -298,7 +298,7 @@ def test_tamper_routing_tier_rejected(client, db_session):
 
     # Attacker tries to alter routing tier in database
     payment = db_session.query(PaymentRequest).filter(PaymentRequest.request_id == "REQ-DEMO-001").first()
-    payment.routing_tier = "AUTO_APPROVE"
+    payment.routing_tier = "TIER_2"
     db_session.commit()
 
     res_approve = client.post(

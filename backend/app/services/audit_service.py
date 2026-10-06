@@ -49,6 +49,9 @@ def log_event(
 
     log_id = f"LOG-{uuid.uuid4().hex[:12].upper()}"
     timestamp = datetime.utcnow()
+    if last_log and timestamp <= last_log.timestamp:
+        from datetime import timedelta
+        timestamp = last_log.timestamp + timedelta(microseconds=1000)
     details_str = json.dumps(details, sort_keys=True) if details else ""
 
     current_hash = calculate_hash(
