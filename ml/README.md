@@ -155,6 +155,150 @@ This produces `ml/data/training_data.csv`. The script automatically validates th
 
 The dataset is fully reproducible: running the generator with the same code and `RANDOM_SEED = 42` always produces identical output.
 
+## Model Architecture & Training
+
+The ML component trains an **XGBoost Classifier** (`xgboost.XGBClassifier`) to predict the likelihood of a payment being fraudulent (`is_fraud`).
+
+### Hyperparameters & Class Imbalance
+
+Fraud is inherently rare (4% in the synthetic dataset). Instead of relying on data upsampling like SMOTE, we instruct the model to pay proportional attention to the minority class by setting `scale_pos_weight`:
+
+*   `scale_pos_weight` = (Genuine Training Records) / (Fraud Training Records)
+*   Configured dynamically (e.g., 6144 / 256 = **24.0**)
+
+**Initial Model Configuration:**
+*   `objective`: `"binary:logistic"`
+*   `eval_metric`: `"logloss"`
+*   `n_estimators`: 300
+*   `max_depth`: 6
+*   `learning_rate`: 0.05
+*   `subsample`: 0.8
+*   `colsample_bytree`: 0.8
+*   `random_state`: 42
+
+### Outputs
+
+The trained pipeline outputs two continuous risk indicators:
+
+1.  **`fraud_probability`**: Raw unrounded probability derived directly from `model.predict_proba()[:, 1]`. Bound between `0.0` and `1.0`.
+2.  **`risk_score`**: A scaled integer approximation mapping `fraud_probability * 100`. Bound between `0` and `100`.
+
+### Architectural Rule: ML is Advisory Only
+
+The XGBoost model **ONLY predicts the probability of fraud.**
+It **DOES NOT**:
+- Approve or reject payments
+- Authorize transactions
+- Decide routing or required signatures
+- Place items on manual hold
+
+All policy enforcement, thresholds, and final payment actions belong strictly to the **Backend Policy Engine**.
+
+### Artifact Storage
+
+The trained model is exported natively and saved as:
+`ml/models/trustguard_xgb.json`
+
+During evaluation and future prediction, the model strictly enforces the exact 17-feature order detailed in `ml/feature_names.json`.
+
+## Evaluation
+
+The model was evaluated strictly on the untouched test set (1,600 records) using a default decision threshold of `0.5`.
+
+### Primary Metrics
+
+| Metric | Score | Context |
+|---|---|---|
+| **Precision** | `0.9846` | When the model flags fraud, it is correct 98.46% of the time. |
+| **Recall** | `1.0000` | The model caught 100% of the actual fraud cases. |
+| **F1-Score** | `0.9922` | Harmonic mean of Precision and Recall. |
+| **PR-AUC** | `1.0000` | Area under Precision-Recall Curve. With a fraud baseline of only `0.04` (4%), achieving 1.00 represents perfect separation across all thresholds. |
+| **Accuracy** | `0.9994` | Included for completeness, though secondary to PR-AUC in imbalanced datasets. |
+
+*Why PR-AUC matters:* Because our dataset is heavily imbalanced (4% fraud), standard ROC-AUC can be misleadingly high (due to many True Negatives). PR-AUC focuses specifically on the minority positive class. Achieving a near 1.0 PR-AUC compared to the 0.04 baseline indicates the model learned the explicit fraud scenario definitions exceptionally well.
+
+### Confusion Matrix (Threshold = 0.5)
+
+| | Predicted Genuine (0) | Predicted Fraud (1) |
+|---|---|---|
+| **Actual Genuine (0)** | **1535** (TN) | **1** (FP) |
+| **Actual Fraud (1)** | **0** (FN) | **64** (TP) |
+
+### Probability Confidence Analysis
+
+The model exhibits extreme confidence in its predictions:
+- **95.2%** of predictions have a fraud probability `< 0.01`
+- **3.6%** of predictions have a fraud probability `> 0.99`
+
+**Investigation Conclusion:** 
+This high confidence is not due to target leakage. Rather, because the synthetic dataset uses distinct, hard-coded boundaries to generate fraud scenarios (e.g., `fake_invoice` explicitly sets `po_exists=0`), XGBoost's decision trees can effortlessly map these discrete rules, resulting in near-perfect linear/tree separability that lacks the ambient noise of real-world messy data.
+
+## SHAP Fraud Explanations
+
+Because TrustGuard's ML component is strictly advisory, its outputs must be explainable to backend operators and analysts. To accomplish this, we integrated **SHAP (SHapley Additive exPlanations)**.
+
+### Local Explainability
+
+Instead of providing a generic "global feature importance," the model calculates SHAP values uniquely for **every individual transaction**. This allows the system to determine exactly *why* a specific payment was flagged, based on the specific circumstances of that request.
+
+### Top 3 Contributor Extraction
+
+The explanation logic (`ml/src/explain.py`) processes the SHAP output dynamically:
+1. Calculates the SHAP log-odds contribution for all 17 features.
+2. Identifies the **direction** of the impact:
+   - Positive SHAP value = increases risk.
+   - Negative SHAP value = reduces risk.
+3. Sorts features by their **absolute magnitude** (highest impact first).
+4. Selects the top 3 strongest contributors for that specific prediction.
+5. Maps the technical feature names to human-readable text via `HUMAN_MAPPING`.
+
+### Human-Readable Mapping Example
+
+The raw feature `invoice_po_amount_ratio` with a high positive SHAP value dynamically translates to:
+> "Invoice amount differs significantly from the purchase order amount, increasing fraud risk."
+
+The raw feature `document_quality_score` with a negative SHAP value translates to:
+> "Payment document quality is normal, reducing fraud risk."
+
+This ensures the frontend or analyst receives context-aware, readable explanations without needing to parse Python dictionaries or tree splits.
+
+## Prediction Interface
+
+The final integration point for the Backend Policy Engine is the `predict_risk(features)` function located in `ml/src/predict.py`. This function serves as a complete abstraction over the XGBoost and SHAP layers.
+
+### Expected Input
+
+The function accepts a single dictionary of features mapping to numeric values.
+
+**Validation Rules:**
+- **Strict Contract:** Must contain exactly the 17 features defined in `ml/feature_names.json`.
+- **No Missing Values:** Raises a `ValueError` if required features are absent.
+- **No Extra Values:** Raises a `ValueError` if unexpected features are supplied.
+- **No Data Leakage:** Immediately rejects inputs containing target variables or outcome metrics (e.g., `is_fraud`, `risk_score`).
+- **Data Types:** All feature values must cast cleanly to `float`.
+
+### Output Format
+
+The function returns a consistent dictionary combining the model's raw probability, derived risk score, and the SHAP-powered top 3 explanations.
+
+```json
+{
+  "fraud_probability": 0.9997,
+  "risk_score": 99.97,
+  "reasons": [
+    "Vendor has an unusually high number of payments in the last 24 hours, increasing fraud risk.",
+    "Vendor has limited history of genuine payments, increasing fraud risk.",
+    "Payment document quality is normal, reducing fraud risk."
+  ]
+}
+```
+
+### Backend Integration Expectations
+
+The ML system is built to act purely as an intelligence signal. The returned `risk_score` and `reasons` are intended for frontend display and backend routing logic.
+
+**CRITICAL:** The prediction interface **does not authorize transactions**. The Backend Policy Engine must interpret the `risk_score` (e.g., `score > 80` = Manual Hold) and execute the actual TrustGuard business logic and REALKEY signature requests.
+
 ## Directory Structure
 
 ```
