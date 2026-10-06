@@ -407,36 +407,65 @@ def create_payment_request_from_invoice(
             },
         )
 
-    # 3. Duplicate Invoice Protection
-    existing_duplicate = (
+    # 3. Duplicate Invoice & Settlement Protection
+    existing_payments = (
         db.query(PaymentRequest)
         .filter(
             PaymentRequest.vendor_id == resolved_vendor.vendor_id,
             PaymentRequest.invoice_id == invoice_id,
         )
-        .first()
+        .all()
     )
-    if existing_duplicate:
-        log_event(
-            db=db,
-            user_id=requester_id,
-            action="DUPLICATE_INVOICE_DETECTED",
-            result="BLOCKED",
-            request_id=existing_duplicate.request_id,
-            details={
-                "document_id": document_id,
-                "vendor_id": resolved_vendor.vendor_id,
-                "invoice_id": invoice_id,
-                "existing_request_id": existing_duplicate.request_id,
-            },
-        )
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Duplicate invoice detected: Invoice '{invoice_id}' has already been registered "
-                f"for vendor '{resolved_vendor.vendor_id}' (Existing Request ID: {existing_duplicate.request_id})."
-            ),
-        )
+    if existing_payments:
+        settled = next((p for p in existing_payments if p.status in ("AUTHORIZED", "RELEASED")), None)
+        if settled:
+            log_event(
+                db=db,
+                user_id=requester_id,
+                action="INVOICE_ALREADY_SETTLED",
+                result="BLOCKED",
+                request_id=settled.request_id,
+                details={
+                    "document_id": document_id,
+                    "vendor_id": resolved_vendor.vendor_id,
+                    "invoice_id": invoice_id,
+                    "existing_status": settled.status,
+                    "settled_amount": settled.amount,
+                    "reason": "ALREADY_SETTLED",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Invoice already settled: Invoice '{invoice_id}' for vendor '{resolved_vendor.vendor_id}' "
+                    f"has already been settled and paid (Existing Request ID: {settled.request_id}, Status: {settled.status}). "
+                    f"Total remaining payable is 0."
+                ),
+            )
+
+        pending = next((p for p in existing_payments if p.status in ("PENDING", "ON_HOLD", "MANUAL_REVIEW_REQUIRED")), None)
+        if pending:
+            log_event(
+                db=db,
+                user_id=requester_id,
+                action="DUPLICATE_INVOICE_DETECTED",
+                result="BLOCKED",
+                request_id=pending.request_id,
+                details={
+                    "document_id": document_id,
+                    "vendor_id": resolved_vendor.vendor_id,
+                    "invoice_id": invoice_id,
+                    "existing_status": pending.status,
+                    "reason": "PENDING_DUPLICATE",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Duplicate invoice detected: Invoice '{invoice_id}' has already been registered "
+                    f"for vendor '{resolved_vendor.vendor_id}' (Existing Request ID: {pending.request_id}, Status: {pending.status})."
+                ),
+            )
 
     # 4. Generate persistent Request ID and instantiate PaymentRequest
     request_id = f"REQ-OCR-{uuid.uuid4().hex[:8].upper()}"

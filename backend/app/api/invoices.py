@@ -2,12 +2,15 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
+import json
 from app.database import get_db
 from app.models.invoice_document import InvoiceDocument
+from app.models.payment_request import PaymentRequest
 from app.schemas.invoice import (
     InvoiceDocumentResponse,
     InvoicePaymentCreationResponse,
     InvoiceReviewRequest,
+    InvoiceSettlementStatusResponse,
 )
 from app.services.document_service import (
     create_payment_request_from_invoice,
@@ -114,3 +117,71 @@ def create_payment_request(
     three-way matching, fraud risk scoring, policy routing, and REALKEY pipeline.
     """
     return create_payment_request_from_invoice(db, document_id, confirmation)
+
+
+@router.get(
+    "/{invoice_id}/settlement-status",
+    response_model=InvoiceSettlementStatusResponse,
+    summary="Get settlement and payment status for an invoice number",
+)
+def get_invoice_settlement_status(
+    invoice_id: str,
+    vendor_id: Optional[str] = Query(None, description="Optional vendor ID for scoped settlement query"),
+    db: Session = Depends(get_db),
+):
+    """
+    Checks whether an invoice is UNPAID, PENDING_APPROVAL, or fully SETTLED.
+    Enforces that an invoice obligation cannot be paid more than once.
+    """
+    query = db.query(PaymentRequest).filter(PaymentRequest.invoice_id == invoice_id)
+    if vendor_id:
+        query = query.filter(PaymentRequest.vendor_id == vendor_id)
+    payments = query.all()
+
+    if not payments:
+        # Check if an uploaded document exists with this invoice_id
+        invoice_total = 0.0
+        doc = db.query(InvoiceDocument).filter(InvoiceDocument.extracted_data.like(f"%{invoice_id}%")).first()
+        if doc and doc.extracted_data:
+            try:
+                data = json.loads(doc.extracted_data)
+                invoice_total = float(data.get("total_amount") or 0.0)
+            except Exception:
+                pass
+
+        return InvoiceSettlementStatusResponse(
+            invoice_id=invoice_id,
+            vendor_id=vendor_id,
+            settlement_status="UNPAID",
+            invoice_total=invoice_total,
+            total_paid=0.0,
+            remaining_payable=invoice_total,
+            payment_requests=[],
+        )
+
+    settled_payments = [p for p in payments if p.status in ("AUTHORIZED", "RELEASED")]
+    total_paid = sum(p.amount for p in settled_payments)
+    first_payment = payments[0]
+    invoice_total = first_payment.amount
+    v_id = vendor_id or first_payment.vendor_id
+
+    if settled_payments:
+        settlement_status = "SETTLED"
+        remaining = 0.0
+    elif any(p.status in ("PENDING", "ON_HOLD", "MANUAL_REVIEW_REQUIRED") for p in payments):
+        settlement_status = "PENDING_APPROVAL"
+        remaining = max(0.0, invoice_total - total_paid)
+    else:
+        settlement_status = "UNPAID"
+        remaining = max(0.0, invoice_total - total_paid)
+
+    return InvoiceSettlementStatusResponse(
+        invoice_id=invoice_id,
+        vendor_id=v_id,
+        settlement_status=settlement_status,
+        invoice_total=invoice_total,
+        total_paid=total_paid,
+        remaining_payable=remaining,
+        payment_requests=[p.request_id for p in payments],
+    )
+

@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models.vendor import Vendor
 from app.models.purchase_order import PurchaseOrder
 from app.models.payment_request import PaymentRequest
+from app.models.ledger import LedgerEntry
 from app.schemas.payment import PaymentRequestCreate, PaymentResponse
 from app.services.audit_service import log_event
 
@@ -51,24 +52,64 @@ def create_payment_request(
                 detail=f"Purchase Order '{payment_in.po_id}' does not belong to vendor '{payment_in.vendor_id}'.",
             )
 
-    # 3. Check for duplicate invoice submission for this vendor
-    existing_invoice = (
+    # 3. Check for duplicate invoice submission & settlement protection
+    existing_payments = (
         db.query(PaymentRequest)
         .filter(
             PaymentRequest.vendor_id == payment_in.vendor_id,
             PaymentRequest.invoice_id == payment_in.invoice_id,
         )
-        .first()
+        .all()
     )
-    if existing_invoice:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Duplicate invoice detected: Invoice '{payment_in.invoice_id}' "
-                f"has already been submitted for vendor '{payment_in.vendor_id}' "
-                f"(Existing Request ID: {existing_invoice.request_id})."
-            ),
-        )
+    if existing_payments:
+        settled = next((p for p in existing_payments if p.status in ("AUTHORIZED", "RELEASED")), None)
+        if settled:
+            log_event(
+                db=db,
+                user_id=payment_in.requester_id or "anonymous_requester",
+                action="INVOICE_ALREADY_SETTLED",
+                result="BLOCKED",
+                request_id=settled.request_id,
+                details={
+                    "vendor_id": payment_in.vendor_id,
+                    "invoice_id": payment_in.invoice_id,
+                    "existing_status": settled.status,
+                    "settled_amount": settled.amount,
+                    "reason": "ALREADY_SETTLED",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Invoice already settled: Invoice '{payment_in.invoice_id}' for vendor '{payment_in.vendor_id}' "
+                    f"has already been settled and paid (Existing Request ID: {settled.request_id}, Status: {settled.status}). "
+                    f"Total remaining payable is 0."
+                ),
+            )
+
+        pending = next((p for p in existing_payments if p.status in ("PENDING", "ON_HOLD", "MANUAL_REVIEW_REQUIRED")), None)
+        if pending:
+            log_event(
+                db=db,
+                user_id=payment_in.requester_id or "anonymous_requester",
+                action="DUPLICATE_INVOICE_DETECTED",
+                result="BLOCKED",
+                request_id=pending.request_id,
+                details={
+                    "vendor_id": payment_in.vendor_id,
+                    "invoice_id": payment_in.invoice_id,
+                    "existing_status": pending.status,
+                    "reason": "PENDING_DUPLICATE",
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Duplicate invoice detected: Invoice '{payment_in.invoice_id}' "
+                    f"has already been submitted for vendor '{payment_in.vendor_id}' "
+                    f"(Existing Request ID: {pending.request_id}, Status: {pending.status})."
+                ),
+            )
 
     # 4. Generate persistent request ID and create payment record
     request_id = f"REQ-{uuid.uuid4().hex[:10].upper()}"
@@ -164,3 +205,97 @@ def get_payment(
             detail=f"Payment request '{request_id}' not found.",
         )
     return payment
+
+
+@router.post(
+    "/payments/{request_id}/release",
+    response_model=PaymentResponse,
+    summary="Release and settle an authorized payment to mock ledger",
+)
+def release_payment(
+    request_id: str,
+    releaser_id: Optional[str] = Query(default="finance_ops_01"),
+    db: Session = Depends(get_db),
+):
+    """
+    Executes mock financial disbursement for an AUTHORIZED payment.
+    Transitions payment status to RELEASED, updates the mock ledger,
+    and seals the settlement in the tamper-evident audit log.
+    """
+    payment = (
+        db.query(PaymentRequest)
+        .filter(PaymentRequest.request_id == request_id)
+        .first()
+    )
+    if not payment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Payment request '{request_id}' not found.",
+        )
+    if payment.status != "AUTHORIZED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Payment request '{request_id}' cannot be released: current status is '{payment.status}'. "
+                f"Only AUTHORIZED payments can be released to the ledger."
+            ),
+        )
+
+    # Transition payment status to RELEASED
+    payment.status = "RELEASED"
+    now = datetime.utcnow()
+
+    # Create or update LedgerEntry
+    ledger_entry = (
+        db.query(LedgerEntry)
+        .filter(LedgerEntry.request_id == request_id)
+        .first()
+    )
+    if not ledger_entry:
+        ledger_entry = LedgerEntry(
+            ledger_id=f"LEDGER-{uuid.uuid4().hex[:10].upper()}",
+            request_id=request_id,
+            amount=payment.amount,
+            currency=payment.currency,
+            status="RELEASED",
+            authorized_at=now,
+            released_at=now,
+        )
+        db.add(ledger_entry)
+    else:
+        ledger_entry.status = "RELEASED"
+        ledger_entry.released_at = now
+
+    db.commit()
+    db.refresh(payment)
+
+    # Tamper-evident audit log events
+    log_event(
+        db=db,
+        user_id=releaser_id or "finance_ops_01",
+        action="PAYMENT_RELEASED",
+        result="SUCCESS",
+        request_id=payment.request_id,
+        details={
+            "vendor_id": payment.vendor_id,
+            "invoice_id": payment.invoice_id,
+            "amount": payment.amount,
+            "currency": payment.currency,
+            "ledger_id": ledger_entry.ledger_id,
+        },
+    )
+    log_event(
+        db=db,
+        user_id=releaser_id or "finance_ops_01",
+        action="INVOICE_SETTLED",
+        result="SUCCESS",
+        request_id=payment.request_id,
+        details={
+            "vendor_id": payment.vendor_id,
+            "invoice_id": payment.invoice_id,
+            "total_settled_amount": payment.amount,
+        },
+    )
+
+    return payment
+

@@ -100,7 +100,7 @@ def seed_database(db: Session) -> Dict[str, Any]:
     ]
     db.add_all(approvers)
 
-    # 3. Seed Simulated Vendors for Acme Ltd
+    # 3. Seed 10 Fictional Vendors for Acme Ltd
     vendors = [
         Vendor(
             vendor_id="VEND-001",
@@ -119,14 +119,14 @@ def seed_database(db: Session) -> Dict[str, Any]:
             approved=True,
             bank_account="GLOB-BANK-002",
             onboarded_date=now - timedelta(days=365),
-            usual_amount_mean=120000.0,
+            usual_amount_mean=150000.0,
             usual_amount_std=15000.0,
             usual_hour=11.0,
             usual_weekday=3,
         ),
         Vendor(
             vendor_id="VEND-003",
-            vendor_name="Apex Cloud Infrastructure",
+            vendor_name="Apex Cloud Services",
             approved=True,
             bank_account="APEX-BANK-003",
             onboarded_date=now - timedelta(days=120),
@@ -137,9 +137,75 @@ def seed_database(db: Session) -> Dict[str, Any]:
         ),
         Vendor(
             vendor_id="VEND-004",
+            vendor_name="Meridian Office Systems",
+            approved=True,
+            bank_account="MERI-BANK-004",
+            onboarded_date=now - timedelta(days=90),
+            usual_amount_mean=32000.0,
+            usual_amount_std=3000.0,
+            usual_hour=11.0,
+            usual_weekday=2,
+        ),
+        Vendor(
+            vendor_id="VEND-005",
+            vendor_name="Nova Industrial Parts",
+            approved=True,
+            bank_account="NOVA-BANK-005",
+            onboarded_date=now - timedelta(days=200),
+            usual_amount_mean=68000.0,
+            usual_amount_std=6000.0,
+            usual_hour=15.0,
+            usual_weekday=3,
+        ),
+        Vendor(
+            vendor_id="VEND-006",
+            vendor_name="BluePeak Logistics",
+            approved=True,
+            bank_account="BLUE-BANK-006",
+            onboarded_date=now - timedelta(days=150),
+            usual_amount_mean=18000.0,
+            usual_amount_std=2000.0,
+            usual_hour=9.0,
+            usual_weekday=4,
+        ),
+        Vendor(
+            vendor_id="VEND-007",
+            vendor_name="Vertex IT Solutions",
+            approved=True,
+            bank_account="VERT-BANK-007",
+            onboarded_date=now - timedelta(days=100),
+            usual_amount_mean=95000.0,
+            usual_amount_std=8000.0,
+            usual_hour=13.0,
+            usual_weekday=2,
+        ),
+        Vendor(
+            vendor_id="VEND-008",
+            vendor_name="GreenField Packaging",
+            approved=True,
+            bank_account="GREN-BANK-008",
+            onboarded_date=now - timedelta(days=80),
+            usual_amount_mean=50000.0,
+            usual_amount_std=5000.0,
+            usual_hour=16.0,
+            usual_weekday=1,
+        ),
+        Vendor(
+            vendor_id="VEND-009",
+            vendor_name="Orion Manufacturing",
+            approved=True,
+            bank_account="ORIN-BANK-009",
+            onboarded_date=now - timedelta(days=250),
+            usual_amount_mean=42000.0,
+            usual_amount_std=4000.0,
+            usual_hour=12.0,
+            usual_weekday=5,
+        ),
+        Vendor(
+            vendor_id="VEND-010",
             vendor_name="Shadow Shell Enterprises",
             approved=False,
-            bank_account="SHAD-BANK-999",
+            bank_account="SHAD-BANK-010",
             onboarded_date=now - timedelta(days=1),
             usual_amount_mean=0.0,
             usual_amount_std=0.0,
@@ -149,7 +215,7 @@ def seed_database(db: Session) -> Dict[str, Any]:
     ]
     db.add_all(vendors)
 
-    # 4. Seed Purchase Orders
+    # 4. Seed Purchase Orders for legitimate vendors
     purchase_orders = [
         PurchaseOrder(
             po_id="PO-2026-001",
@@ -172,29 +238,60 @@ def seed_database(db: Session) -> Dict[str, Any]:
             status="APPROVED",
             date=now - timedelta(days=3),
         ),
+        PurchaseOrder(
+            po_id="PO-2026-004",
+            vendor_id="VEND-004",
+            amount=32000.0,
+            status="APPROVED",
+            date=now - timedelta(days=4),
+        ),
+        PurchaseOrder(
+            po_id="PO-2026-005",
+            vendor_id="VEND-005",
+            amount=68000.0,
+            status="APPROVED",
+            date=now - timedelta(days=6),
+        ),
+        PurchaseOrder(
+            po_id="PO-2026-006",
+            vendor_id="VEND-006",
+            amount=18000.0,
+            status="APPROVED",
+            date=now - timedelta(days=2),
+        ),
+        PurchaseOrder(
+            po_id="PO-2026-007",
+            vendor_id="VEND-007",
+            amount=95000.0,
+            status="APPROVED",
+            date=now - timedelta(days=7),
+        ),
+        PurchaseOrder(
+            po_id="PO-2026-008",
+            vendor_id="VEND-008",
+            amount=50000.0,  # PO is 50,000. Invoice INV-DEMO-008 is 75,000 for mismatch scenario
+            status="APPROVED",
+            date=now - timedelta(days=8),
+        ),
+        PurchaseOrder(
+            po_id="PO-2026-009",
+            vendor_id="VEND-009",
+            amount=42000.0,
+            status="APPROVED",
+            date=now - timedelta(days=3),
+        ),
     ]
     db.add_all(purchase_orders)
 
     # 5. Seed Goods Receipts (GRNs)
     goods_receipts = [
         GoodsReceipt(
-            grn_id="GRN-2026-001",
-            po_id="PO-2026-001",
+            grn_id=f"GRN-2026-00{i}",
+            po_id=f"PO-2026-00{i}",
             received=True,
-            date=now - timedelta(days=8),
-        ),
-        GoodsReceipt(
-            grn_id="GRN-2026-002",
-            po_id="PO-2026-002",
-            received=True,
-            date=now - timedelta(days=4),
-        ),
-        GoodsReceipt(
-            grn_id="GRN-2026-003",
-            po_id="PO-2026-003",
-            received=True,
-            date=now - timedelta(days=2),
-        ),
+            date=now - timedelta(days=max(1, 10 - i)),
+        )
+        for i in range(1, 10)
     ]
     db.add_all(goods_receipts)
 
@@ -251,10 +348,10 @@ def seed_database(db: Session) -> Dict[str, Any]:
         # Scenario 4: High risk, unapproved vendor, no PO, suspicious channel
         PaymentRequest(
             request_id="REQ-DEMO-004",
-            vendor_id="VEND-004",
+            vendor_id="VEND-010",
             amount=500000.0,
             currency="INR",
-            bank_account="SHAD-BANK-999",
+            bank_account="SHAD-BANK-010",
             invoice_id="INV-2026-999",
             po_id=None,
             timestamp=now - timedelta(hours=1),
@@ -264,9 +361,48 @@ def seed_database(db: Session) -> Dict[str, Any]:
             requester_id="emp_rogue_99",
             processor_id=None,
         ),
+        # Scenario D: Bank account change detected
+        PaymentRequest(
+            request_id="REQ-DEMO-007",
+            vendor_id="VEND-007",
+            amount=95000.0,
+            currency="INR",
+            bank_account="DIFF-BANK-VERT-999",  # Deliberate bank account change
+            invoice_id="INV-DEMO-007",
+            po_id="PO-2026-007",
+            timestamp=now - timedelta(hours=2),
+            channel="portal",
+            document_quality_score=0.94,
+            status="PENDING",
+            requester_id="emp_accounts_01",
+            processor_id=None,
+        ),
+        # Scenario E: PO amount mismatch (PO 50,000 vs Invoice 75,000)
+        PaymentRequest(
+            request_id="REQ-DEMO-008",
+            vendor_id="VEND-008",
+            amount=75000.0,
+            currency="INR",
+            bank_account="GREN-BANK-008",
+            invoice_id="INV-DEMO-008",
+            po_id="PO-2026-008",
+            timestamp=now - timedelta(hours=3),
+            channel="portal",
+            document_quality_score=0.95,
+            status="PENDING",
+            requester_id="emp_accounts_02",
+            processor_id=None,
+        ),
     ]
     db.add_all(payment_requests)
     db.commit()
+
+    # Ensure synthetic demo invoice PDF fixtures exist in demo-invoices/
+    try:
+        from app.services.invoice_generator import generate_all_demo_invoices
+        generate_all_demo_invoices()
+    except Exception:
+        pass
 
     # Log seed event in tamper-evident audit log
     log_event(

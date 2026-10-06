@@ -112,3 +112,17 @@ class InvoicePaymentCreationResponse(BaseModel):
     vendor_id: str
     is_new_vendor: bool
     payment: PaymentResponse
+
+
+class InvoiceSettlementStatusResponse(BaseModel):
+    """
+    Settlement and payment obligation status for an invoice.
+    Tracks whether an invoice is UNPAID, PENDING_APPROVAL, or SETTLED.
+    """
+    invoice_id: str
+    vendor_id: Optional[str] = None
+    settlement_status: str  # "UNPAID", "PENDING_APPROVAL", "SETTLED"
+    invoice_total: float
+    total_paid: float
+    remaining_payable: float
+    payment_requests: List[str] = Field(default_factory=list)
