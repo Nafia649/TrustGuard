@@ -42,7 +42,13 @@ class MLAssessmentResponse(BaseModel):
 
 class PaymentScoreResponse(BaseModel):
     request_id: str
-    payment_status: str
+    status: str
+    risk_score: int
+    fraud_probability: float
+    routing_tier: str
+    required_signatures: int
+    reasons: List[Any]
+    payment_status: Optional[str] = None  # Backward compatibility
     business_checks: BusinessChecksResponse
     ml_assessment: MLAssessmentResponse
     routing: RoutingResult
@@ -60,7 +66,7 @@ def score_payment(
     db: Session = Depends(get_db),
 ):
     """
-    Orchestrates the complete scoring & routing pipeline:
+    Orchestrates the complete scoring & routing pipeline (Phase 5):
     1. Loads payment request
     2. Runs Three-Way Matching business checks (deterministic facts)
     3. Derives legitimate ML features (fails if data is missing without fabrication)
@@ -68,6 +74,7 @@ def score_payment(
     5. Evaluates configurable Policy Engine routing & safety rules
     6. Updates payment status, routing tier, and required signature counts
     7. Emits tamper-evident audit records
+    8. Returns frontend-friendly response with top-level scoring data and structured blocks
     """
     # 1. Fetch payment request
     payment = (
@@ -148,6 +155,12 @@ def score_payment(
 
     return PaymentScoreResponse(
         request_id=payment.request_id,
+        status=payment.status,
+        risk_score=ml_result["risk_score"],
+        fraud_probability=ml_result["fraud_probability"],
+        routing_tier=routing.routing_tier,
+        required_signatures=routing.required_signatures,
+        reasons=ml_result["reasons"],
         payment_status=payment.status,
         business_checks=BusinessChecksResponse(**three_way_facts),
         ml_assessment=MLAssessmentResponse(**ml_result),

@@ -56,7 +56,8 @@ backend/
 │   ├── test_payments.py
 │   ├── test_audit.py
 │   ├── test_three_way_match.py
-│   └── test_policy.py
+│   ├── test_policy.py
+│   └── test_scoring_orchestration.py
 ├── .env.example         # Environment template
 ├── requirements.txt     # Python package dependencies
 └── README.md
@@ -80,7 +81,7 @@ The backend executes deterministic business verification checks on invoice submi
 
 ---
 
-## Policy Engine & Risk Routing (Phase 4)
+## Policy Engine & Risk Routing
 
 The routing engine dynamically reads policy rules from the database and evaluates approval requirements without hardcoded thresholds:
 
@@ -110,11 +111,40 @@ If any safeguard fails, the payment is automatically escalated to `ONE_SIGNATURE
 
 ---
 
-## ML Integration & 17-Feature Contract
+## Scoring Orchestration Pipeline (Phase 5)
 
-The ML component (`predict_risk(features)`) is owned by the ML teammate. The backend integrates via `services/ml_client.py` and `services/feature_builder.py`.
+When `POST /payments/{id}/score` is called, the backend executes the end-to-end orchestration pipeline:
 
-### The 17 Canonical Input Features
+```
+Payment Request
+      ↓
+Three-Way Match (Business facts)
+      ↓
+Feature Builder (Exact 17 ML features, zero fabrication)
+      ↓
+ML Client Adapter (predict_risk)
+      ↓
+Fraud Probability + Risk Score (0-100) + SHAP Reasons
+      ↓
+Policy Engine (Dynamic thresholds + safety rules)
+      ↓
+Routing Determination (AUTO_APPROVE / ONE_SIGNATURE / TWO_SIGNATURES / HOLD)
+      ↓
+Database Persistence (Updates status, score, routing tier, required signatures)
+      ↓
+Audit Log (Tamper-evident SHA-256 chained entry)
+      ↓
+Frontend Response
+```
+
+### ML Pluggability
+The ML adapter (`backend/app/services/ml_client.py`) provides a clean interface for the ML teammate:
+- If `ML_PROVIDER=mock`, it uses a deterministic testing mock.
+- To connect the trained XGBoost model, the ML teammate implements `predict_risk(features)` under `ml.predict`, and setting `ML_PROVIDER=real` routes all inference to the real model seamlessly without any backend code refactoring.
+
+---
+
+## The 17 Canonical Input Features
 
 | # | Feature | Type | Derivation Source |
 |---|---------|------|-------------------|
@@ -192,6 +222,19 @@ Once running:
 
 ### 3. Scoring & Policy Routing
 - **`POST /payments/{id}/score`**: Orchestrates Three-Way Match, derives ML features, queries ML model, evaluates Policy Engine routing, persists routing tier & status, and writes to audit log.
+  ```json
+  {
+    "request_id": "REQ-DEMO-001",
+    "status": "AUTHORIZED",
+    "risk_score": 18,
+    "fraud_probability": 0.18,
+    "routing_tier": "AUTO_APPROVE",
+    "required_signatures": 0,
+    "reasons": [],
+    "business_checks": { "po_exists": 1, "po_approved": 1, "amount_match": true },
+    "routing": { "routing_tier": "AUTO_APPROVE", "status": "AUTHORIZED" }
+  }
+  ```
 
 ### 4. Policy Configuration & Versioning
 - **`GET /policy`**: Retrieves the currently active policy configuration.

@@ -1,6 +1,7 @@
+import json
 from datetime import datetime
 from typing import Any, List, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class PaymentRequestCreate(BaseModel):
@@ -42,3 +43,13 @@ class PaymentResponse(BaseModel):
     risk_reasons: Optional[Any] = None
     routing_tier: Optional[str] = None
     required_signatures: int = 0
+
+    @field_validator("risk_reasons", mode="before")
+    @classmethod
+    def parse_risk_reasons(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except Exception:
+                return v
+        return v
