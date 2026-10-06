@@ -1,0 +1,9 @@
+# Backend local ignore
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+__pycache__/
+.pytest_cache/
+.env
+.venv/
