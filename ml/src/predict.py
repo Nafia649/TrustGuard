@@ -9,7 +9,24 @@ to the SHAP explainer for human-readable top 3 reasons.
 
 import os
 import json
+import math
 import pandas as pd
+
+BINARY_FEATURES = {
+    "po_exists", "po_approved", "grn_exists", "vendor_approved",
+    "duplicate_invoice", "bank_account_changed", "new_vendor",
+    "unusual_time", "suspicious_channel", "possible_split_payment"
+}
+
+CONTINUOUS_BOUNDS = {
+    "document_quality_score": (0.0, 1.0),
+    "invoice_po_amount_ratio": (0.0, float('inf')),
+    "amount_vs_vendor_avg": (0.0, float('inf')),
+    "vendor_age_days": (0.0, float('inf')),
+    "past_genuine_payments": (0.0, float('inf')),
+    "payments_last_24h": (0.0, float('inf')),
+    "amount_last_24h": (0.0, float('inf')),
+}
 
 # Import SHAP explanation pipeline (which already loads the XGBoost model natively)
 from explain import explain_prediction
@@ -70,12 +87,24 @@ def predict_risk(features: dict) -> dict:
     if extra:
         raise ValueError(f"Validation Error: Unexpected extra features provided: {extra}")
         
-    # 4. TYPE CHECK (Must be numeric)
+    # 4. TYPE CHECK & BOUNDS ENFORCEMENT
     for k, v in features.items():
         try:
-            float(v)
+            value = float(v)
         except (ValueError, TypeError):
             raise TypeError(f"Validation Error: Feature '{k}' must be numeric, got {type(v).__name__}: {v}")
+            
+        if not math.isfinite(value):
+            raise ValueError(f"Validation Error: Feature '{k}' must be finite, got {value}")
+            
+        if k in BINARY_FEATURES:
+            if value not in (0.0, 1.0):
+                raise ValueError(f"Validation Error: Binary feature '{k}' must be 0 or 1, got {value}")
+                
+        if k in CONTINUOUS_BOUNDS:
+            min_val, max_val = CONTINUOUS_BOUNDS[k]
+            if not (min_val <= value <= max_val):
+                raise ValueError(f"Validation Error: Feature '{k}' must be between {min_val} and {max_val}, got {value}")
             
     # 5. ORDERING AND CONVERSION
     # Creates a 1-row DataFrame enforcing the exact contract order
@@ -162,6 +191,33 @@ def test_interface():
     except Exception as e:
         print(f"Banned feature test    -> PASSED (Caught: {e})")
         
+    # Test E: NaN Value
+    dict_nan = base_dict.copy()
+    dict_nan["amount_last_24h"] = "NaN"
+    try:
+        predict_risk(dict_nan)
+        print("FAIL: NaN test did not raise an error.")
+    except Exception as e:
+        print(f"NaN test               -> PASSED (Caught: {e})")
+        
+    # Test F: Binary Bounds
+    dict_binary = base_dict.copy()
+    dict_binary["new_vendor"] = -50
+    try:
+        predict_risk(dict_binary)
+        print("FAIL: Binary bounds test did not raise an error.")
+    except Exception as e:
+        print(f"Binary bounds test     -> PASSED (Caught: {e})")
+        
+    # Test G: Continuous Bounds
+    dict_cont = base_dict.copy()
+    dict_cont["document_quality_score"] = 500
+    try:
+        predict_risk(dict_cont)
+        print("FAIL: Continuous bounds test did not raise an error.")
+    except Exception as e:
+        print(f"Continuous bounds test -> PASSED (Caught: {e})")
+
     print("\nTests complete.")
 
 if __name__ == "__main__":
