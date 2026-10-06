@@ -2,7 +2,7 @@ import hashlib
 import json
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 from app.models.audit_log import AuditLog
 
@@ -39,13 +39,14 @@ def log_event(
     Append an immutable, hash-chained record to the audit log.
     Ensures that any tampering breaks the cryptographic chain.
     """
-    # Fetch the most recent audit entry to link previous_hash
+    # Fetch the most recent audit entry to link previous_hash and monotonic sequence
     last_log = (
         db.query(AuditLog)
-        .order_by(AuditLog.timestamp.desc(), AuditLog.log_id.desc())
+        .order_by(AuditLog.sequence.desc(), AuditLog.timestamp.desc(), AuditLog.log_id.desc())
         .first()
     )
     previous_hash = last_log.current_hash if last_log else GENESIS_HASH
+    sequence = (last_log.sequence + 1) if (last_log and last_log.sequence is not None) else 1
 
     log_id = f"LOG-{uuid.uuid4().hex[:12].upper()}"
     timestamp = datetime.utcnow()
@@ -64,6 +65,7 @@ def log_event(
 
     audit_entry = AuditLog(
         log_id=log_id,
+        sequence=sequence,
         timestamp=timestamp,
         user_id=user_id,
         action=action,
@@ -80,14 +82,49 @@ def log_event(
     return audit_entry
 
 
+def get_audit_logs(
+    db: Session,
+    request_id: Optional[str] = None,
+    action: Optional[str] = None,
+    user_id: Optional[str] = None,
+    order: str = "desc",
+    limit: int = 100,
+    offset: int = 0,
+) -> List[AuditLog]:
+    """Retrieve filtered audit logs with pagination and deterministic sorting."""
+    query = db.query(AuditLog)
+    if request_id:
+        query = query.filter(AuditLog.request_id == request_id)
+    if action:
+        query = query.filter(AuditLog.action == action)
+    if user_id:
+        query = query.filter(AuditLog.user_id == user_id)
+
+    if order.lower() == "asc":
+        query = query.order_by(AuditLog.sequence.asc(), AuditLog.timestamp.asc(), AuditLog.log_id.asc())
+    else:
+        query = query.order_by(AuditLog.sequence.desc(), AuditLog.timestamp.desc(), AuditLog.log_id.desc())
+
+    return query.offset(offset).limit(limit).all()
+
+
+def get_audit_log_by_id(db: Session, log_id: str) -> Optional[AuditLog]:
+    """Retrieve a single audit log entry by unique ID."""
+    return db.query(AuditLog).filter(AuditLog.log_id == log_id).first()
+
+
 def verify_chain(db: Session) -> Dict[str, Any]:
     """
     Verify the cryptographic integrity of the entire audit chain.
     Returns whether the chain is valid and identifies any corrupted entry.
     """
-    records = db.query(AuditLog).order_by(AuditLog.timestamp.asc(), AuditLog.log_id.asc()).all()
+    records = (
+        db.query(AuditLog)
+        .order_by(AuditLog.sequence.asc(), AuditLog.timestamp.asc(), AuditLog.log_id.asc())
+        .all()
+    )
     if not records:
-        return {"valid": True, "records_checked": 0, "corrupted_id": None}
+        return {"valid": True, "records_checked": 0, "corrupted_id": None, "reason": None}
 
     expected_prev = GENESIS_HASH
     for rec in records:
@@ -114,9 +151,9 @@ def verify_chain(db: Session) -> Dict[str, Any]:
                 "valid": False,
                 "records_checked": len(records),
                 "corrupted_id": rec.log_id,
-                "reason": "Hash mismatch: contents have been modified",
+                "reason": f"Hash mismatch: calculated {recalculated} does not match current_hash {rec.current_hash}",
             }
 
         expected_prev = rec.current_hash
 
-    return {"valid": True, "records_checked": len(records), "corrupted_id": None}
+    return {"valid": True, "records_checked": len(records), "corrupted_id": None, "reason": None}

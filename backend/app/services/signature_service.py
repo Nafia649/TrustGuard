@@ -155,6 +155,16 @@ def verify_and_record_signature(
     if not approver.active:
         raise SignatureSecurityError(403, f"Approver '{approver_id}' account is deactivated.")
 
+    # Audit log signature submission event
+    log_event(
+        db=db,
+        user_id=approver_id,
+        action="SIGNATURE_SUBMITTED",
+        result="RECEIVED",
+        request_id=payment.request_id,
+        details={"routing_tier": payment.routing_tier, "nonce": nonce},
+    )
+
     # 3. Policy & Role Authorization check
     policy = get_active_policy(db)
     if payment.routing_tier == "ONE_SIGNATURE":

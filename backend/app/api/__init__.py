@@ -6,6 +6,7 @@ from app.api.scoring import router as scoring_router
 from app.api.policy import router as policy_router
 from app.api.signing import router as signing_router
 from app.api.webauthn import router as webauthn_router
+from app.api.audit import router as audit_router
 
 __all__ = [
     "health_router",
@@ -16,4 +17,5 @@ __all__ = [
     "policy_router",
     "signing_router",
     "webauthn_router",
+    "audit_router",
 ]

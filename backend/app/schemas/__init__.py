@@ -18,6 +18,7 @@ from app.schemas.signature import (
     WebAuthnRegisterFinishRequest,
     WebAuthnRegisterFinishResponse,
 )
+from app.schemas.audit import AuditLogResponse, AuditVerificationResponse
 
 __all__ = [
     "HealthResponse",
@@ -40,4 +41,6 @@ __all__ = [
     "WebAuthnRegisterBeginResponse",
     "WebAuthnRegisterFinishRequest",
     "WebAuthnRegisterFinishResponse",
+    "AuditLogResponse",
+    "AuditVerificationResponse",
 ]

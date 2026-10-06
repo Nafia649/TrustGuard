@@ -90,6 +90,22 @@ def score_payment(
 
     # 2. Perform Three-Way Match business checks
     three_way_facts = perform_three_way_match(db, payment)
+    log_event(
+        db=db,
+        user_id="trustguard_three_way_matcher",
+        action="THREE_WAY_MATCH_COMPLETED",
+        result="SUCCESS" if three_way_facts.get("amount_match") else "FLAGGED",
+        request_id=payment.request_id,
+        details={
+            "po_exists": three_way_facts.get("po_exists"),
+            "po_approved": three_way_facts.get("po_approved"),
+            "grn_exists": three_way_facts.get("grn_exists"),
+            "vendor_approved": three_way_facts.get("vendor_approved"),
+            "amount_match": three_way_facts.get("amount_match"),
+            "duplicate_invoice": three_way_facts.get("duplicate_invoice"),
+            "bank_account_changed": three_way_facts.get("bank_account_changed"),
+        },
+    )
 
     # 3. Construct 17 ML features adhering to the Data Integrity Rule
     try:
@@ -115,6 +131,18 @@ def score_payment(
 
     # 4. Invoke ML Adapter (predict_risk)
     ml_result = ml_client.predict_risk(features)
+    log_event(
+        db=db,
+        user_id="trustguard_ml_service",
+        action="RISK_SCORED",
+        result="SUCCESS",
+        request_id=payment.request_id,
+        details={
+            "risk_score": ml_result["risk_score"],
+            "fraud_probability": ml_result["fraud_probability"],
+            "reasons": ml_result["reasons"],
+        },
+    )
 
     # 5. Evaluate dynamic Policy Engine routing
     routing = evaluate_routing(
@@ -135,7 +163,7 @@ def score_payment(
     db.commit()
     db.refresh(payment)
 
-    # 7. Audit log the scoring and routing event
+    # 7. Audit log scoring, routing, and authorization events
     log_event(
         db=db,
         user_id="trustguard_scoring_orchestrator",
@@ -152,6 +180,36 @@ def score_payment(
             "policy_version": routing.policy_version,
         },
     )
+    log_event(
+        db=db,
+        user_id="trustguard_policy_engine",
+        action="ROUTED",
+        result="SUCCESS",
+        request_id=payment.request_id,
+        details={
+            "risk_score": ml_result["risk_score"],
+            "fraud_probability": ml_result["fraud_probability"],
+            "routing_tier": routing.routing_tier,
+            "status": routing.status,
+            "required_signatures": routing.required_signatures,
+            "escalation_reasons": routing.escalation_reasons,
+            "policy_version": routing.policy_version,
+        },
+    )
+
+    if routing.status == "AUTHORIZED":
+        log_event(
+            db=db,
+            user_id="trustguard_policy_engine",
+            action="PAYMENT_AUTHORIZED",
+            result="SUCCESS",
+            request_id=payment.request_id,
+            details={
+                "routing_tier": "AUTO_APPROVE",
+                "policy_version": routing.policy_version,
+                "amount": payment.amount,
+            },
+        )
 
     return PaymentScoreResponse(
         request_id=payment.request_id,

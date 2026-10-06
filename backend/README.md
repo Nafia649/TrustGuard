@@ -282,6 +282,19 @@ Once running:
 - **`PUT /policy`**: Updates policy thresholds, creates a new immutable version, and logs an audit record.
 - **`GET /policy/history`**: Lists full version history of all policies.
 
+### 7. Tamper-Evident Audit Log (Phase 7)
+- **`GET /audit-log`**: Lists immutable, hash-chained audit records with filtering by `request_id`, `action`, `user_id`, sorting (`order=asc|desc`), and pagination (`limit`, `offset`). Supports `verify=true` to include integrity verification headers (`X-Audit-Chain-Valid`, `X-Audit-Records-Checked`).
+- **`GET /audit-log/verify`**: Traverses the SHA-256 hash chain from genesis (`0`*64) to head, recalculating hashes to detect modified data, altered current hashes, broken previous-hash links, or deleted records.
+  ```json
+  {
+    "valid": true,
+    "records_checked": 24,
+    "corrupted_id": null,
+    "reason": null
+  }
+  ```
+- **`GET /audit-log/{log_id}`**: Retrieves a single audit record by unique ID.
+
 ---
 
 ## Running Tests
