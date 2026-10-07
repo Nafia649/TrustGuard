@@ -13,7 +13,7 @@ export default function Approvals() {
     getPayments().then(data => {
       // Filter payments that need approval or are on hold
       const requiresApproval = data.filter(p => 
-        (p.routing_tier === 'TIER_1' || p.routing_tier === 'TIER_2' || p.routing_tier === 'HOLD') && 
+        (p.routing_tier === 'ONE_SIGNATURE' || p.routing_tier === 'TWO_SIGNATURES' || p.routing_tier === 'HOLD') && 
         p.status !== 'RELEASED' && p.status !== 'AUTHORIZED'
       );
       setPayments(requiresApproval);
