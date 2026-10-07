@@ -1,4 +1,4 @@
-import os
+﻿import os
 from typing import List, Dict, Any, Optional
 import pymupdf as fitz
 
@@ -41,7 +41,7 @@ DEMO_INVOICE_DEFINITIONS: List[Dict[str, Any]] = [
         "currency": "INR",
         "bank_account": "GLOB-BANK-002",
         "template": "minimal",
-        "scenario": "Scenario B: Medium Risk (Single Signature Escalation > ₹50,000 cap)",
+        "scenario": "Scenario B: Medium Risk (Single Signature Escalation > â‚¹50,000 cap)",
         "line_items": [
             ("Heavy Machinery Freight & Transit Escort", 1, 150000.0, 150000.0),
         ],
@@ -103,7 +103,7 @@ DEMO_INVOICE_DEFINITIONS: List[Dict[str, Any]] = [
         "currency": "INR",
         "bank_account": "NOVA-BANK-005",
         "template": "minimal",
-        "scenario": "Scenario B: Medium Risk Heavy Spares (> ₹50,000 threshold)",
+        "scenario": "Scenario B: Medium Risk Heavy Spares (> â‚¹50,000 threshold)",
         "line_items": [
             ("Heavy-Duty Flange Assemblies", 20, 2400.0, 48000.0),
             ("Hydraulic Valve Seal Sets", 10, 2000.0, 20000.0),
@@ -165,7 +165,7 @@ DEMO_INVOICE_DEFINITIONS: List[Dict[str, Any]] = [
         "currency": "INR",
         "bank_account": "GREN-BANK-008",
         "template": "minimal",
-        "scenario": "Scenario E: Invoice Amount vs PO Mismatch (PO ₹50,000 vs Invoice ₹75,000)",
+        "scenario": "Scenario E: Invoice Amount vs PO Mismatch (PO â‚¹50,000 vs Invoice â‚¹75,000)",
         "line_items": [
             ("Biodegradable Heavy Packaging Enclosures", 2500, 30.0, 75000.0),
         ],
@@ -205,7 +205,7 @@ DEMO_INVOICE_DEFINITIONS: List[Dict[str, Any]] = [
         "currency": "INR",
         "bank_account": "SHAD-BANK-010",
         "template": "corporate",
-        "scenario": "Scenario C: Unapproved Shadow Vendor (approved = False, No PO, ₹500,000 Hold)",
+        "scenario": "Scenario C: Unapproved Shadow Vendor (approved = False, No PO, â‚¹500,000 Hold)",
         "line_items": [
             ("Urgent Strategic Advisory Fee (Unspecified Scope)", 1, 500000.0, 500000.0),
         ],
@@ -213,209 +213,7 @@ DEMO_INVOICE_DEFINITIONS: List[Dict[str, Any]] = [
         "tax": 0.0,
         "total": 500000.0,
     },
-    {
-        "invoice_id": "INV-DEMO-011",
-        "vendor_id": "VEND-001",
-        "vendor_name": "Acme Industrial Supplies",
-        "address": "100 Industrial Parkway, Sector 4, Bangalore 560001",
-        "gstin": "29ACMEI1234F1Z5",
-        "date": "2026-10-06",
-        "due_date": "2026-11-05",
-        "po_id": "PO-2026-011",
-        "currency": "INR",
-        "bank_account": "ACME-BANK-001",
-        "scenario": "Clean Invoice",
-        "template": "corporate",
-        "line_items": [
-            ("Industrial Bearings", 100, 500.0, 50000.0),
-            ("Shipping", 1, 5000.0, 5000.0)
-        ],
-        "subtotal": 55000.0,
-        "tax": 0.0,
-        "total": 55000.0,
-    },
-    {
-        "invoice_id": "INV-DEMO-012",
-        "vendor_id": "VEND-002",
-        "vendor_name": "Global Logistics Corp",
-        "address": "450 Freight Ave, Mumbai",
-        "gstin": "27GLOBL1234F1Z5",
-        "date": "2026-10-06",
-        "due_date": "2026-11-05",
-        "po_id": "PO-2026-012",
-        "currency": "INR",
-        "bank_account": "GLOB-BANK-002",
-        "scenario": "Two Signatures Needed",
-        "template": "minimal",
-        "line_items": [
-            ("Freight Forwarding Q3", 1, 210000.0, 210000.0)
-        ],
-        "subtotal": 210000.0,
-        "tax": 0.0,
-        "total": 210000.0,
-    },
-    {
-        "invoice_id": "INV-DEMO-013",
-        "vendor_id": "VEND-013",
-        "vendor_name": "NewTech Startups",
-        "address": "12 Tech Hub, Pune",
-        "gstin": "27NEWTE1234F1Z5",
-        "date": "2026-10-06",
-        "due_date": "2026-11-05",
-        "po_id": "PO-2026-013",
-        "currency": "INR",
-        "bank_account": "NEW-BANK-013",
-        "scenario": "New Vendor Alert",
-        "template": "digital",
-        "line_items": [
-            ("Software License", 1, 22000.0, 22000.0)
-        ],
-        "subtotal": 22000.0,
-        "tax": 0.0,
-        "total": 22000.0,
-    },
-    {
-        "invoice_id": "INV-DEMO-014",
-        "vendor_id": "VEND-004",
-        "vendor_name": "Rapid Print Solutions",
-        "address": "12 Print Street, Delhi",
-        "gstin": "07RAPID1234F1Z5",
-        "date": "2026-10-06",
-        "due_date": "2026-11-05",
-        "po_id": "PO-2026-014",
-        "currency": "INR",
-        "bank_account": "ALT-BANK-999",
-        "scenario": "Bank Account Changed",
-        "template": "corporate",
-        "line_items": [
-            ("Marketing Brochures", 1000, 33.0, 33000.0)
-        ],
-        "subtotal": 33000.0,
-        "tax": 0.0,
-        "total": 33000.0,
-    },
-    {
-        "invoice_id": "INV-DEMO-015",
-        "vendor_id": "VEND-005",
-        "vendor_name": "Office Supplies Direct",
-        "address": "55 Desk Ave, Hyderabad",
-        "gstin": "36OFFIC1234F1Z5",
-        "date": "2026-10-06",
-        "due_date": "2026-11-05",
-        "po_id": "PO-2026-015",
-        "currency": "INR",
-        "bank_account": "OFFI-BANK-005",
-        "scenario": "PO Mismatch",
-        "template": "minimal",
-        "line_items": [
-            ("Ergonomic Chairs", 10, 8500.0, 85000.0)
-        ],
-        "subtotal": 85000.0,
-        "tax": 0.0,
-        "total": 85000.0,
-    },
-    {
-        "invoice_id": "INV-DEMO-016",
-        "vendor_id": "VEND-006",
-        "vendor_name": "CleanSpace Co.",
-        "address": "90 Hygiene Rd, Chennai",
-        "gstin": "33CLEAN1234F1Z5",
-        "date": "2026-10-06",
-        "due_date": "2026-11-05",
-        "po_id": "PO-2026-016",
-        "currency": "INR",
-        "bank_account": "CLEN-BANK-006",
-        "scenario": "GRN Mismatch",
-        "template": "digital",
-        "line_items": [
-            ("Cleaning Services Q3", 1, 20000.0, 20000.0)
-        ],
-        "subtotal": 20000.0,
-        "tax": 0.0,
-        "total": 20000.0,
-    },
-    {
-        "invoice_id": "INV-DEMO-017",
-        "vendor_id": "VEND-017",
-        "vendor_name": "Shady Supplies Ltd",
-        "address": "Unknown PO Box, Kolkata",
-        "gstin": "19SHADY1234F1Z5",
-        "date": "2026-10-06",
-        "due_date": "2026-11-05",
-        "po_id": "PO-2026-017",
-        "currency": "INR",
-        "bank_account": "SHAD-BANK-017",
-        "scenario": "Unapproved Vendor",
-        "template": "corporate",
-        "line_items": [
-            ("Consulting Services", 1, 45000.0, 45000.0)
-        ],
-        "subtotal": 45000.0,
-        "tax": 0.0,
-        "total": 45000.0,
-    },
-    {
-        "invoice_id": "INV-DEMO-018",
-        "vendor_id": "VEND-008",
-        "vendor_name": "GreenField Packaging",
-        "address": "800 Green Park, Noida",
-        "gstin": "09GREEN1234F1Z5",
-        "date": "2026-10-06",
-        "due_date": "2026-11-05",
-        "po_id": "PO-2026-018",
-        "currency": "INR",
-        "bank_account": "GREN-BANK-008",
-        "scenario": "Velocity Alert",
-        "template": "digital",
-        "line_items": [
-            ("Packaging Materials", 100, 500.0, 50000.0)
-        ],
-        "subtotal": 50000.0,
-        "tax": 0.0,
-        "total": 50000.0,
-    },
-    {
-        "invoice_id": "INV-DEMO-019",
-        "vendor_id": "VEND-003",
-        "vendor_name": "Apex Cloud Services",
-        "address": "300 Cloud Way, Bangalore",
-        "gstin": "29APEXX1234F1Z5",
-        "date": "2026-10-06",
-        "due_date": "2026-11-05",
-        "po_id": "PO-2026-019",
-        "currency": "INR",
-        "bank_account": "APEX-BANK-003",
-        "scenario": "Split Payment Pattern",
-        "template": "minimal",
-        "line_items": [
-            ("Cloud Subscription Part 1", 1, 49000.0, 49000.0)
-        ],
-        "subtotal": 49000.0,
-        "tax": 0.0,
-        "total": 49000.0,
-    },
-    {
-        "invoice_id": "INV-DEMO-020",
-        "vendor_id": "VEND-020",
-        "vendor_name": "Ghost Entity Corp",
-        "address": "999 Unknown Street, Void",
-        "gstin": "99GHOST1234F1Z5",
-        "date": "2026-10-06",
-        "due_date": "2026-11-05",
-        "po_id": "",
-        "currency": "INR",
-        "bank_account": "GHST-BANK-999",
-        "scenario": "High Risk Fraud",
-        "template": "corporate",
-        "line_items": [
-            ("Marketing Strategy", 1, 99000.0, 99000.0)
-        ],
-        "subtotal": 99000.0,
-        "tax": 0.0,
-        "total": 99000.0,
-    }
 ]
-
 
 
 def render_corporate_template(doc: fitz.Document, inv: Dict[str, Any]) -> None:
@@ -464,7 +262,7 @@ def render_corporate_template(doc: fitz.Document, inv: Dict[str, Any]) -> None:
     page.draw_rect(fitz.Rect(320, y_sum, 576, y_sum + 75), color=(0.95, 0.97, 0.99), fill=(0.95, 0.97, 0.99))
     page.insert_text((335, y_sum + 20), f"Subtotal: {inv['currency']} {inv['subtotal']:,.2f}", fontsize=9, color=(0.3, 0.3, 0.3))
     page.insert_text((335, y_sum + 36), f"Tax: {inv['currency']} {inv['tax']:,.2f}", fontsize=9, color=(0.3, 0.3, 0.3))
-    page.insert_text((335, y_sum + 58), f"Grand Total: ₹ {inv['total']:,.2f}", fontsize=11, color=(0.05, 0.2, 0.4))
+    page.insert_text((335, y_sum + 58), f"Grand Total: â‚¹ {inv['total']:,.2f}", fontsize=11, color=(0.05, 0.2, 0.4))
 
     # Remittance / Bank Account Details
     y_bank = y_sum + 95
@@ -517,7 +315,7 @@ def render_minimal_template(doc: fitz.Document, inv: Dict[str, Any]) -> None:
     page.insert_text((360, y_tot + 18), f"Subtotal: {inv['subtotal']:,.2f}", fontsize=9, color=(0.3, 0.3, 0.3))
     page.insert_text((360, y_tot + 32), f"Tax: {inv['tax']:,.2f}", fontsize=9, color=(0.3, 0.3, 0.3))
     page.draw_line((350, y_tot + 38), (565, y_tot + 38), color=(0.4, 0.4, 0.4), width=1.0)
-    page.insert_text((360, y_tot + 55), f"Grand Total: ₹ {inv['total']:,.2f}", fontsize=11, color=(0.0, 0.0, 0.0))
+    page.insert_text((360, y_tot + 55), f"Grand Total: â‚¹ {inv['total']:,.2f}", fontsize=11, color=(0.0, 0.0, 0.0))
     page.draw_line((350, y_tot + 62), (565, y_tot + 62), color=(0.4, 0.4, 0.4), width=1.0)
 
     # Bank Info
@@ -577,7 +375,7 @@ def render_digital_template(doc: fitz.Document, inv: Dict[str, Any]) -> None:
     page.draw_rect(fitz.Rect(320, y_bot, 582, y_bot + 70), color=(0.12, 0.15, 0.22), fill=(0.12, 0.15, 0.22))
     page.insert_text((340, y_bot + 22), f"Subtotal: {inv['subtotal']:,.2f}", fontsize=9, color=(0.7, 0.75, 0.85))
     page.insert_text((340, y_bot + 38), f"Tax: {inv['tax']:,.2f}", fontsize=9, color=(0.7, 0.75, 0.85))
-    page.insert_text((340, y_bot + 58), f"Grand Total: ₹ {inv['total']:,.2f}", fontsize=11, color=(1, 1, 1))
+    page.insert_text((340, y_bot + 58), f"Grand Total: â‚¹ {inv['total']:,.2f}", fontsize=11, color=(1, 1, 1))
 
     page.insert_text((45, 780), f"Demo Fixture: {inv['scenario']} (Synthetic Data Only)", fontsize=7, color=(0.6, 0.6, 0.6))
 
