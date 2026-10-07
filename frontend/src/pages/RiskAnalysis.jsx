@@ -38,8 +38,10 @@ export default function RiskAnalysis() {
           // Refetch to get the updated payment with the score and routing applied to DB
           paymentData = await getPayment(id);
         } else if (paymentData.risk_score === null && scoringRef.current) {
-            // If another effect is scoring it, wait a bit and refetch
-            await new Promise(r => setTimeout(r, 1000));
+            // If another effect is scoring it, poll until scoring finishes
+            while (scoringRef.current) {
+              await new Promise(r => setTimeout(r, 500));
+            }
             paymentData = await getPayment(id);
         }
         

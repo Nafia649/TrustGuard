@@ -156,7 +156,7 @@ export default function AnalystReview() {
                 </h3>
                 <ul className="space-y-2 mb-6 bg-navy-bg border border-navy-border rounded-lg p-4">
                   {selectedPayment.risk_reasons ? (
-                    JSON.parse(selectedPayment.risk_reasons).map((reason, idx) => (
+                    (Array.isArray(selectedPayment.risk_reasons) ? selectedPayment.risk_reasons : JSON.parse(selectedPayment.risk_reasons)).map((reason, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm text-text-muted">
                         <span className="text-danger mt-0.5">•</span>
                         {reason}

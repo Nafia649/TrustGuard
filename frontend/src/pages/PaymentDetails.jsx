@@ -46,7 +46,11 @@ export default function PaymentDetails() {
     );
   }
 
-  const riskReasons = payment.risk_reasons ? JSON.parse(payment.risk_reasons) : [];
+  const riskReasons = Array.isArray(payment.risk_reasons)
+    ? payment.risk_reasons
+    : (typeof payment.risk_reasons === 'string' 
+        ? JSON.parse(payment.risk_reasons) 
+        : []);
   
   // Create mock objects for the components that expect them, populated with real data
   const threeWayMatch = {
