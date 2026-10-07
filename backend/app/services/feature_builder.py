@@ -188,6 +188,7 @@ def build_ml_features(db: Session, payment: PaymentRequest) -> Dict[str, Any]:
         .filter(
             PaymentRequest.timestamp >= window_start,
             PaymentRequest.timestamp <= payment.timestamp,
+            PaymentRequest.vendor_id == payment.vendor_id,
             PaymentRequest.request_id != payment.request_id,
         )
         .all()
