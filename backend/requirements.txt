@@ -9,3 +9,5 @@ python-multipart>=0.0.6
 webauthn>=2.0.0,<4.0.0
 cryptography>=41.0.0
 
+Pillow>=10.0.0
+pymupdf>=1.23.0
